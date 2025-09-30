@@ -34,7 +34,7 @@ molecule1 = mxl.SocketMolecule(hub=hub,
                              resolution=resolution, 
                              center=mp.Vector3(0, 0, 0), 
                              size=mp.Vector3(1, 1, 1), 
-                             sigma=1.0, 
+                             sigma=0.1, 
                              dimensions=2, 
                              time_units_fs=0.1,
                              rescaling_factor=1)
