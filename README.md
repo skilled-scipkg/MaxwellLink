@@ -132,4 +132,11 @@ Connecting to the LAMMPS classical molecular dynamics code using **fix mxl** is 
 
 We are also working on connecting with more FDTD engines and molecular drivers. Please stay tuned!
 
+## Citations and aknoweledgements
+The development of MaxwellLink is greatly accelerated due to the open-source ecosystem in EM and molecular simulations. Especially, we aknoweledge the socket interface in the [i-PI](https://github.com/i-pi/i-pi) molecular dynamics code and the [MEEP](https://github.com/NanoComp/meep) FDTD engine for providing user-friendly Python API in FDTD simulations. The initial version of this project will take much longer to accomplish without these referece implementations.
+
+Therefore, for publications using MaxwellLink, please cite not only the work of MaxwellLink, but also [i-PI](https://github.com/i-pi/i-pi) and [MEEP](https://github.com/NanoComp/meep). Additionally, if you use third-party molecular drivers, such as Psi4 and LAMMPS, please also cite the relavent publications as well.
+
+This project is also finacially supported by the [U.S. National Science Foundation under Grant No. CHE-2502758](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2502758&HistoricalAwards=false). 
+
 
