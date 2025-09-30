@@ -1,11 +1,21 @@
 # MaxwellLink: A flexible framework for self-consistent light-matter simulations
 
 
-**MaxwellLink** is a flexible framework for self-consistent EM-molecular simulations via a socket protocol. In detail, it provides a **socket communication interface** between an external FDTD engine and molecular dynamics packages. With this socket interface, the Maxwell's equations are propagated by the external FDTD engine, whereas the molecular dynamics are taken care by exisiting quantum or classical molecular dynamics pakcages. Overall, the socket communication decouples the external FDTD engine from the molecular drivers, enabling the self-consistent simulation of EM interacting with **a wide range of molecular or material systems**.
+## Key features
+
+- Connecting an FDTD engine to **many hetrogenenous** molecular drivers concurrently.
+
+- TCP socket interface for inter-code communication enables simulations on **multi-nodes** or multi-HPCs.
+
+- Supporting **realistic photonic environments** (via FDTD engines) coupled to **realistic molecules** (via exisiting molecular simulation tools).
+
+- Easy to add glue code for supporting additional molecular simulations drivers.
+
+## Overview
+
+**MaxwellLink** is a flexible framework for self-consistent EM-molecular simulations developed in the [TEL Research Group](www.taoeli.org/) at University of Delaware. In detail, it provides a **socket communication interface** between an external FDTD engine and molecular dynamics packages. With this socket interface, the Maxwell's equations are propagated by the external FDTD engine, whereas the molecular dynamics are taken care by exisiting quantum or classical molecular dynamics pakcages. Overall, the socket communication decouples the external FDTD engine from the molecular drivers, enabling the self-consistent simulation of EM interacting with **a wide range of molecular or material systems**.
 
 ![MaxwellLink workflow](./media/workflow.png)
-
-
 
 At each time step of the EM propagation, **MaxwellLink** sends the E-field vector at the molecular locations via the **socket communication**, and the molecular driver uses the E-field vector information to propagate the molecular dynamics for one FDTD time step and then returns the instantaneous time derivatives of the dipole moment vector to FDTD via **socket**. The returned quantities are used to propagate Maxwell's equations for the next time step in FDTD. 
 
@@ -133,10 +143,10 @@ Connecting to the LAMMPS classical molecular dynamics code using **fix mxl** is 
 We are also working on connecting with more FDTD engines and molecular drivers. Please stay tuned!
 
 ## Citations and aknoweledgements
-The development of MaxwellLink is greatly accelerated due to the open-source ecosystem in EM and molecular simulations. Especially, we aknoweledge the socket interface in the [i-PI](https://github.com/i-pi/i-pi) molecular dynamics code and the [MEEP](https://github.com/NanoComp/meep) FDTD engine for providing user-friendly Python API in FDTD simulations. The initial version of this project will take much longer to accomplish without these referece implementations.
+The development of MaxwellLink is greatly accelerated due to the open-source ecosystems in EM and molecular simulations. Especially, we aknoweledge the socket interface in the [i-PI](https://github.com/i-pi/i-pi) molecular dynamics code and the [MEEP](https://github.com/NanoComp/meep) FDTD engine for providing user-friendly Python API in FDTD simulations. The initial version of this project will take much longer to accomplish without these referece implementations.
 
 Therefore, for publications using MaxwellLink, please cite not only the work of MaxwellLink, but also [i-PI](https://github.com/i-pi/i-pi) and [MEEP](https://github.com/NanoComp/meep). Additionally, if you use third-party molecular drivers, such as Psi4 and LAMMPS, please also cite the relavent publications as well.
 
-This project is also finacially supported by the [U.S. National Science Foundation under Grant No. CHE-2502758](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2502758&HistoricalAwards=false). 
+This project is finacially supported by the [U.S. National Science Foundation under Grant No. CHE-2502758](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2502758&HistoricalAwards=false). 
 
 
