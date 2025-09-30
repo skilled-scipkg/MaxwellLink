@@ -1,9 +1,13 @@
-# MaxwellLink: A flexible framework for self-consistent EM-molecular simulations
-
-**MaxwellLink** is a flexible framework for self-consistent EM-molecular simulations via a socket protocol. In detail, it provides a socket communication interface between an external FDTD engine and molecular dynamics packages (**MaxwellLink**). With this socket interface, the Maxwell's equations are propagated by the external FDTD engine, whereas the molecular dynamics are taken care by exisiting quantum or classical molecular dynamics pakcages. Overall, the socket communication decouples the external FDTD engine from the molecular drivers, enabling the self-consistent simulation of EM interacting with **a wide range of molecular or material systems**.
+# MaxwellLink: A flexible framework for self-consistent light-matter simulations
 
 
-At each time step of the EM propagation, **MaxwellLink** sends the E-field vector at the molecular locations via the **socket communication**, and the molecular driver uses the E-field vector information to propagate the molecular dynamics for one FDTD time step and then return the instantaneous time derivatives of the dipole moment vector to FDTD via **socket**. The returned quantities are used to propagate Maxwell's equations for the next time step in FDTD. 
+**MaxwellLink** is a flexible framework for self-consistent EM-molecular simulations via a socket protocol. In detail, it provides a **socket communication interface** between an external FDTD engine and molecular dynamics packages. With this socket interface, the Maxwell's equations are propagated by the external FDTD engine, whereas the molecular dynamics are taken care by exisiting quantum or classical molecular dynamics pakcages. Overall, the socket communication decouples the external FDTD engine from the molecular drivers, enabling the self-consistent simulation of EM interacting with **a wide range of molecular or material systems**.
+
+![MaxwellLink workflow](./media/workflow.png)
+
+
+
+At each time step of the EM propagation, **MaxwellLink** sends the E-field vector at the molecular locations via the **socket communication**, and the molecular driver uses the E-field vector information to propagate the molecular dynamics for one FDTD time step and then returns the instantaneous time derivatives of the dipole moment vector to FDTD via **socket**. The returned quantities are used to propagate Maxwell's equations for the next time step in FDTD. 
 
 Our implementation supports the connection between the FDTD engine with multiple molecular drivers at the same time. Moreover, because FDTD is unaware of which theory the drivers use for propagating the molecular dynamics, hetrogenenous molecular drivers using different theory can be connected to the same FDTD engine simutaneously. This highly flexible self-consistent EM-Molecule framework may serve as an advantageous tool in many fields.
 
@@ -29,12 +33,12 @@ mxl_install_lammps
 # bash ./src/maxwelllink/mxl_drivers/lammps/mxl_install_lammps.sh
 ```
 
-## Uninstall 
+### Uninstall 
 ```bash
 pip uninstall maxwelllink
 ```
 
-## Test
+### Test
 ```bash
 pytest -v
 ```
@@ -97,7 +101,7 @@ and see whether **mxl_driver.py** has been installed properly.
 
 The molecular systems can be described by the following three levels of theory. 
 
-#### **Model systems**
+#### 1. **Model systems**
 
 An **electronic two-level system (tls)** model is provided in the **Python driver**. 
 
@@ -110,7 +114,7 @@ mxl_driver.py --model tls --port 31415 --param "omega=0.242, mu12=187, orientati
 Please check [python/](./src/maxwelllink/mxl_drivers/python/) for detailed usage. 
 
 
-#### **Nonadiabatic electronic dynamics**
+#### 2. **Nonadiabatic electronic dynamics**
 
 A **real-time time-dependent density functional theory (rttddft)** model is provided in the Python driver using the Psi4 interface.
 
@@ -122,7 +126,7 @@ mxl_driver.py --model rttddft --port 31415 --param "molecule_xyz=PATH_TO_Maxwell
 
  Please check [python/](./src/maxwelllink/mxl_drivers/python/) for detailed usage. 
 
-#### **Classical force fields**
+#### 3. **Classical force fields**
 
 Connecting to the LAMMPS classical molecular dynamics code using **fix mxl** is provided. Please check [lammps/](./src/maxwelllink/mxl_drivers/lammps/) for details.
 
