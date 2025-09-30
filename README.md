@@ -13,7 +13,7 @@
 
 ## Overview
 
-**MaxwellLink** is a flexible framework for self-consistent EM-molecular simulations developed in the [TEL Research Group](www.taoeli.org/) at University of Delaware. In detail, it provides a **socket communication interface** between an external FDTD engine and molecular dynamics packages. With this socket interface, the Maxwell's equations are propagated by the external FDTD engine, whereas the molecular dynamics are taken care by exisiting quantum or classical molecular dynamics pakcages. Overall, the socket communication decouples the external FDTD engine from the molecular drivers, enabling the self-consistent simulation of EM interacting with **a wide range of molecular or material systems**.
+**MaxwellLink** is a flexible framework for self-consistent EM-molecular simulations developed in the [TEL Research Group](https://www.taoeli.org/) at University of Delaware. In detail, it provides a **socket communication interface** between an external FDTD engine and molecular dynamics packages. With this socket interface, the Maxwell's equations are propagated by the external FDTD engine, whereas the molecular dynamics are taken care by exisiting quantum or classical molecular dynamics pakcages. Overall, the socket communication decouples the external FDTD engine from the molecular drivers, enabling the self-consistent simulation of EM interacting with **a wide range of molecular or material systems**.
 
 ![MaxwellLink workflow](./media/workflow.png)
 
