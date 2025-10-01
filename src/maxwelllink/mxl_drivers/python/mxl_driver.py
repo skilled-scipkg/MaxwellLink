@@ -158,8 +158,7 @@ def send_force_ready(
     send_bytes(sock, more)
 
 
-# the above functions can be also obtained from meep.sockets, but we duplicate them here
-# to avoid import _meep.so, which may be built with a different compiler or MPI version
+# the above functions can be also obtained from maxwelllink.sockets, but we duplicate them here
 
 try:
     from .models import __drivers__
@@ -170,7 +169,7 @@ except ImportError:
 
 
 description = """
-A Python driver connecting to SocketMEEP, receiving E-field data and returning
+A Python driver connecting to MaxwellLink, receiving E-field data and returning
 the source amplitude vector for a quantum dynamics model.
 """
 
@@ -219,10 +218,10 @@ def run_driver(
     port: int = 31415,
     timeout: float = 600.0,
     driver=DummyModel(),
-    sockets_prefix="/tmp/socketmeep_",
+    sockets_prefix="/tmp/socketmxl_",
 ):
     """
-    Run the driver to communicate with the MEEP simulation via sockets.
+    Run the driver to communicate with the MaxwellLink simulation via sockets.
     """
     if unix:
         sock = socket.socket(socket.AF_UNIX)
@@ -350,7 +349,7 @@ def mxl_driver_main():
         "-S",
         "--sockets_prefix",
         type=str,
-        default="/tmp/socketmeep_",
+        default="/tmp/socketmxl_",
         help="Prefix used for the unix domain sockets. Ignored when using TCP/IP sockets.",
     )
     parser.add_argument(
