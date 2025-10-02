@@ -30,6 +30,7 @@ instantaneous_source_amplitudes = defaultdict(float)
 # one Meep Source per unique polarization fingerprint (shared by molecules)
 _fingerprint_source = {}
 
+
 def make_custom_time_src(key):
     # Meep calls this each time step; just return the current amplitude for this fingerprint
     return mp.CustomSource(lambda t: instantaneous_source_amplitudes[key])
@@ -218,9 +219,9 @@ class TLSMolecule(DummyMolecule):
             f"TLSMolecule: polarization fingerprint hash = {self.polarization_fingerprint_hash}"
         )
         if self.polarization_fingerprint_hash not in instantaneous_source_amplitudes:
-            instantaneous_source_amplitudes[
-                self.polarization_fingerprint_hash
-            ] = 0.0  # initialize the instantaneous source amplitude for this fingerprint
+            instantaneous_source_amplitudes[self.polarization_fingerprint_hash] = (
+                0.0  # initialize the instantaneous source amplitude for this fingerprint
+            )
 
         # set the Hamiltonian and density matrix for the TLS molecule
         self.Hs = np.array([[0, 0], [0, self.omega]], dtype=np.complex128)
@@ -400,7 +401,7 @@ class TLSMolecule(DummyMolecule):
             return self._polarization_prefactor_2d * np.exp(
                 -(R.x * R.x + R.y * R.y) / 2.0 / self.sigma**2
             )
-        
+
         key = self.polarization_fingerprint_hash
 
         # ensure an accumulator exists for this fingerprint
@@ -562,7 +563,9 @@ def update_molecules_no_socket(sources_non_molecule=None, molecules=None):
             for m in molecules:
                 if not m.sources:  # safety
                     m._init_sources()
-            unique_sources = list({id(src): src for m in molecules for src in m.sources}.values())
+            unique_sources = list(
+                {id(src): src for m in molecules for src in m.sources}.values()
+            )
             sim.change_sources(list(sources_non_molecule) + unique_sources)
             started["flag"] = True
 
@@ -772,13 +775,13 @@ class SocketMolecule(DummyMolecule):
             if key not in _fingerprint_source:
                 instantaneous_source_amplitudes[key] = 0.0  # ensure accumulator exists
                 _fingerprint_source[key] = mp.Source(
-                src=make_custom_time_src(key),      # <- reads accumulator each step
-                component=mp.Ez,
-                center=self.center,
-                size=self.size,
-                amplitude=1.0,                      # fixed scalar; time dependence via CustomSource
-                amp_func=amp_func_2d,
-            )
+                    src=make_custom_time_src(key),  # <- reads accumulator each step
+                    component=mp.Ez,
+                    center=self.center,
+                    size=self.size,
+                    amplitude=1.0,  # fixed scalar; time dependence via CustomSource
+                    amp_func=amp_func_2d,
+                )
             srcs.append(_fingerprint_source[key])
         elif self.dimensions == 3:
             for comp, tag, amp_func in (
@@ -884,6 +887,7 @@ class SocketMolecule(DummyMolecule):
 
 ### Collective step function for many socket molecules ###
 
+
 def update_molecules_no_mpi(
     hub: SocketHub, molecules: List[SocketMolecule], sources_non_molecule: List = None
 ):
@@ -906,7 +910,9 @@ def update_molecules_no_mpi(
             started["flag"] = True
 
             # Install sources ONCE: union of non-molecule sources + unique shared sources
-            unique_sources = list({id(src): src for m in molecules for src in m.sources}.values())
+            unique_sources = list(
+                {id(src): src for m in molecules for src in m.sources}.values()
+            )
             sim.change_sources(list(sources_non_molecule) + unique_sources)
 
         # === Mid-run guard ===
@@ -961,11 +967,15 @@ def update_molecules_no_mpi(
 
         for mol in molecules:
             if mol.molecule_id not in responses:
-                print(f"Warning: no response for SocketMolecule {mol.molecule_id} at t={sim.meep_time():.2f}.")
+                print(
+                    f"Warning: no response for SocketMolecule {mol.molecule_id} at t={sim.meep_time():.2f}."
+                )
                 continue
 
             amp_au = np.asarray(responses[mol.molecule_id]["amp"], dtype=float)
-            amp_mu = mol._update_source_amplitude(amp_au)  # returns [ax, ay, az] (or only z in 2D)
+            amp_mu = mol._update_source_amplitude(
+                amp_au
+            )  # returns [ax, ay, az] (or only z in 2D)
 
             # Map returned vector into component keys
             if mol.dimensions == 2:
@@ -975,7 +985,11 @@ def update_molecules_no_mpi(
                     touched_keys.add(key)
                 instantaneous_source_amplitudes[key] += float(amp_mu[2])
             else:  # 3D
-                for tag, val in (("Ex", amp_mu[0]), ("Ey", amp_mu[1]), ("Ez", amp_mu[2])):
+                for tag, val in (
+                    ("Ex", amp_mu[0]),
+                    ("Ey", amp_mu[1]),
+                    ("Ez", amp_mu[2]),
+                ):
                     key = (mol.polarization_fingerprint_hash, tag)
                     if key not in touched_keys:
                         instantaneous_source_amplitudes[key] = 0.0
@@ -986,7 +1000,9 @@ def update_molecules_no_mpi(
             extra_blob = responses[mol.molecule_id].get("extra", b"")
             if extra_blob:
                 try:
-                    mol.additional_data_history.append(json.loads(extra_blob.decode("utf-8")))
+                    mol.additional_data_history.append(
+                        json.loads(extra_blob.decode("utf-8"))
+                    )
                 except Exception:
                     pass
 
@@ -1009,6 +1025,7 @@ def update_molecules(
     # --- detect MPI (optional) ---
     try:
         from mpi4py import MPI as _MPI
+
         _COMM = _MPI.COMM_WORLD
         _RANK = _COMM.Get_rank()
         _SIZE = _COMM.Get_size()
@@ -1055,7 +1072,9 @@ def update_molecules(
                     m.molecule_id: {**m.init_payload, "molecule_id": m.molecule_id}
                     for m in molecules
                 }
-                ok = hub.wait_until_bound(init_payloads, require_init=True, timeout=None)
+                ok = hub.wait_until_bound(
+                    init_payloads, require_init=True, timeout=None
+                )
             ok = _bcast_bool(ok)
             if not ok:
                 raise RuntimeError("wait_until_bound timed out")
@@ -1066,7 +1085,9 @@ def update_molecules(
                     m._init_sources()
 
             # Install sources identically on all ranks ONCE
-            unique_sources = list({id(src): src for m in molecules for src in m.sources}.values())
+            unique_sources = list(
+                {id(src): src for m in molecules for src in m.sources}.values()
+            )
             sim.change_sources(list(sources_non_molecule) + unique_sources)
             started["flag"] = True
 
@@ -1143,9 +1164,13 @@ def update_molecules(
             # Pack responses in molecule order (atomic units)
             off = 0
             for mol in molecules:
-                a = _np.asarray(responses[mol.molecule_id]["amp"], dtype=float).reshape(3)
-                amps_flat[off:off+3] = a
-                extras_by_id[mol.molecule_id] = responses[mol.molecule_id].get("extra", b"")
+                a = _np.asarray(responses[mol.molecule_id]["amp"], dtype=float).reshape(
+                    3
+                )
+                amps_flat[off : off + 3] = a
+                extras_by_id[mol.molecule_id] = responses[mol.molecule_id].get(
+                    "extra", b""
+                )
                 off += 3
 
         had_responses = _bcast_bool(had_responses and _is_master or (not _HAS_MPI))
@@ -1161,11 +1186,13 @@ def update_molecules(
 
         off = 0
         for mol in molecules:
-            amp_au = amps_flat[off:off+3]
+            amp_au = amps_flat[off : off + 3]
             off += 3
 
             # Convert to Meep units using the molecule's own conversion (handles time_units_fs)
-            amp_mu = mol._update_source_amplitude(amp_au)  # returns np.array([ax, ay, az])
+            amp_mu = mol._update_source_amplitude(
+                amp_au
+            )  # returns np.array([ax, ay, az])
 
             # Sum into shared accumulators by (fingerprint, component)
             if mol.dimensions == 2:
@@ -1175,7 +1202,11 @@ def update_molecules(
                     touched_keys.add(key)
                 instantaneous_source_amplitudes[key] += float(amp_mu[2])
             else:
-                for tag, val in (("Ex", amp_mu[0]), ("Ey", amp_mu[1]), ("Ez", amp_mu[2])):
+                for tag, val in (
+                    ("Ex", amp_mu[0]),
+                    ("Ey", amp_mu[1]),
+                    ("Ez", amp_mu[2]),
+                ):
                     key = (mol.polarization_fingerprint_hash, tag)
                     if key not in touched_keys:
                         instantaneous_source_amplitudes[key] = 0.0
@@ -1187,7 +1218,9 @@ def update_molecules(
                 extra_blob = extras_by_id.get(mol.molecule_id, b"")
                 if extra_blob:
                     try:
-                        mol.additional_data_history.append(_json.loads(extra_blob.decode("utf-8")))
+                        mol.additional_data_history.append(
+                            _json.loads(extra_blob.decode("utf-8"))
+                        )
                     except Exception:
                         pass
 

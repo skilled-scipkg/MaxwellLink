@@ -6,7 +6,10 @@ import socket, json
 import numpy as np
 import struct
 
+# from maxwelllink.sockets import *
+
 # import sys
+
 
 _INT32 = struct.Struct("<i")
 _FLOAT64 = struct.Struct("<d")
@@ -158,7 +161,7 @@ def send_force_ready(
     send_bytes(sock, more)
 
 
-# the above functions can be also obtained from maxwelllink.sockets, but we duplicate them here
+# the above functions can be also obtained from maxwelllink.sockets, so we actually do not need to redefine them here in the final version of the code
 
 try:
     from .models import __drivers__
