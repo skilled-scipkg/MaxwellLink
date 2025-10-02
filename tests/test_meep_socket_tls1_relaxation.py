@@ -1,4 +1,3 @@
-import os
 import sys
 import time
 import shlex
@@ -45,7 +44,7 @@ def _resolve_driver_path() -> list[str]:
 
 
 @pytest.mark.slow
-def test_1tls_relaxation_matches_analytical_via_socket():
+def test_1tls_relaxation_matches_analytical_via_socket(plotting=False):
     """
     End-to-end (socket) TLS relaxation test.
 
@@ -110,7 +109,9 @@ def test_1tls_relaxation_matches_analytical_via_socket():
 
         # Run the coupled loop; the driver provides the source amplitude each step
         sim.run(
-            mxl.update_molecules(hub=hub, sources_non_molecule=[], molecules=[molecule]),
+            mxl.update_molecules(
+                hub=hub, sources_non_molecule=[], molecules=[molecule]
+            ),
             until=90,
         )
 
@@ -142,15 +143,15 @@ def test_1tls_relaxation_matches_analytical_via_socket():
             )
 
             # add plotting for debug
-            '''
-            import matplotlib.pyplot as plt
-            plt.plot(time_meep_units, population, label="meep+socket")
-            plt.plot(time_meep_units, population_analytical, label="analytical")
-            plt.xlabel("time (meep units)")
-            plt.ylabel("excited population")
-            plt.legend()
-            plt.show()
-            '''
+            if plotting:
+                import matplotlib.pyplot as plt
+
+                plt.plot(time_meep_units, population, label="meep+socket")
+                plt.plot(time_meep_units, population_analytical, label="analytical")
+                plt.xlabel("time (meep units)")
+                plt.ylabel("excited population")
+                plt.legend()
+                plt.show()
 
             assert (
                 std_dev < 3e-3 and max_abs_diff < 8e-3
@@ -171,4 +172,4 @@ def test_1tls_relaxation_matches_analytical_via_socket():
 
 
 if __name__ == "__main__":
-    test_1tls_relaxation_matches_analytical_via_socket()
+    test_1tls_relaxation_matches_analytical_via_socket(plotting=True)

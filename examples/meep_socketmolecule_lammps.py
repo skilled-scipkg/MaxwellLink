@@ -42,12 +42,12 @@ sim.run(
 hub.stop()
 
 """
-# plot the TLS population relaxation dynamics
-dmux_dt = np.array([additional_data["dmudt_au"][0] for additional_data in molecule1.additional_data_history])
-time_fs = np.array([np.real(additional_data["t_fs"]) for additional_data in molecule1.additional_data_history])
-
 # if we are running this script directly, plot the results
 if __name__ == "__main__" and mp.am_master():
+    # plot the TLS population relaxation dynamics
+    dmux_dt = np.array([additional_data["dmudt_au"][0] for additional_data in molecule1.additional_data_history])
+    time_fs = np.array([np.real(additional_data["t_fs"]) for additional_data in molecule1.additional_data_history])
+    
     plt.figure()
     plt.plot(time_fs, dmux_dt, label="Numerical")
     plt.xlabel("Time [fs]")

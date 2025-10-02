@@ -26,8 +26,8 @@ Assuming Anaconda is installed, MaxwellLink can be installed from source to acce
 ```bash
 # create a new conda environment
 CONDA_ENV="mxl_build"
-# install MEEP for the FDTD engine (the only supported FDTD engine for now)
-conda create -n $CONDA_ENV -c conda-forge pymeep
+# install MEEP with MPI for the FDTD engine (the only supported FDTD engine for now)
+conda create -n $CONDA_ENV -c conda-forge pymeep="*=mpi_mpich_*"
 
 # install MaxwellLink
 git clone git@github.com:TaoELi/MaxwellLink.git

@@ -7,7 +7,7 @@ import maxwelllink as mxl
 
 
 @pytest.mark.slow
-def test_1tls_relaxation_matches_analytical():
+def test_1tls_relaxation_matches_analytical(plotting=False):
     """
     Numerically integrate TLS population relaxation and compare
     against the analytical golden-rule rate in 2D.
@@ -67,6 +67,20 @@ def test_1tls_relaxation_matches_analytical():
             np.max(np.abs(population - population_analytical)) / population[0]
         )
 
+        if plotting:
+            import matplotlib.pyplot as plt
+
+            plt.plot(time, population, label="meep")
+            plt.plot(time, population_analytical, label="analytical")
+            plt.xlabel("time")
+            plt.ylabel("excited population")
+            plt.legend()
+            plt.show()
+
         assert (
             std_dev < 3e-3 and max_abs_diff < 8e-3
         ), f"std_dev={std_dev:.3g}, max_abs_diff={max_abs_diff:.3g}"
+
+
+if __name__ == "__main__":
+    test_1tls_relaxation_matches_analytical(plotting=True)

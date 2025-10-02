@@ -1,4 +1,3 @@
-import os
 import sys
 import time
 import shlex
@@ -45,7 +44,7 @@ def _resolve_driver_path() -> list[str]:
 
 
 @pytest.mark.slow
-def test_2tls_relaxation_matches_analytical_via_socket():
+def test_2tls_relaxation_matches_analytical_via_socket(plotting=False):
     """
     End-to-end (socket) TLS relaxation test.
 
@@ -64,7 +63,8 @@ def test_2tls_relaxation_matches_analytical_via_socket():
     hub = mxl.SocketHub(host=host, port=port, timeout=10.0, latency=1e-5)
 
     # --- launch the external driver (client) only on rank 0 to avoid multiple clients under MPI ---
-    proc = None
+    proc1 = None
+    proc2 = None
     try:
         # --- common simulation setup ---
         cell = mp.Vector3(8, 8, 0)
@@ -74,7 +74,7 @@ def test_2tls_relaxation_matches_analytical_via_socket():
         resolution = 10
 
         # TLS physical parameters (used for the analytical rate)
-        dipole_moment = 1e-1 / np.sqrt(2) # rescale for two TLS
+        dipole_moment = 1e-1 / np.sqrt(2)  # rescale for two TLS
         frequency = 1.0
 
         # one socket-backed molecule; time units 0.1 fs per Meep time
@@ -124,7 +124,9 @@ def test_2tls_relaxation_matches_analytical_via_socket():
 
         # Run the coupled loop; the driver provides the source amplitude each step
         sim.run(
-            mxl.update_molecules(hub=hub, sources_non_molecule=[], molecules=[molecule1, molecule2]),
+            mxl.update_molecules(
+                hub=hub, sources_non_molecule=[], molecules=[molecule1, molecule2]
+            ),
             until=90,
         )
 
@@ -156,15 +158,15 @@ def test_2tls_relaxation_matches_analytical_via_socket():
             )
 
             # add plotting for debug
-            '''
-            import matplotlib.pyplot as plt
-            plt.plot(time_meep_units, population, label="meep+socket")
-            plt.plot(time_meep_units, population_analytical, label="analytical")
-            plt.xlabel("time (meep units)")
-            plt.ylabel("excited population")
-            plt.legend()
-            plt.show()
-            '''
+            if plotting:
+                import matplotlib.pyplot as plt
+
+                plt.plot(time_meep_units, population, label="meep+socket")
+                plt.plot(time_meep_units, population_analytical, label="analytical")
+                plt.xlabel("time (meep units)")
+                plt.ylabel("excited population")
+                plt.legend()
+                plt.show()
 
             assert (
                 std_dev < 3e-3 and max_abs_diff < 8e-3
@@ -172,17 +174,28 @@ def test_2tls_relaxation_matches_analytical_via_socket():
 
     finally:
         # Try to cleanly stop the external driver if we started it
-        if proc is not None and mp.am_master():
+        if proc1 is not None and mp.am_master():
             # Give it a moment to shut down naturally after the sim closes the socket
             try:
-                proc.wait(timeout=2.0)
+                proc1.wait(timeout=2.0)
             except subprocess.TimeoutExpired:
-                proc.terminate()
+                proc1.terminate()
                 try:
-                    proc.wait(timeout=2.0)
+                    proc1.wait(timeout=2.0)
                 except subprocess.TimeoutExpired:
-                    proc.kill()
+                    proc1.kill()
+
+        if proc2 is not None and mp.am_master():
+            # Give it a moment to shut down naturally after the sim closes the socket
+            try:
+                proc2.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                proc2.terminate()
+                try:
+                    proc2.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    proc2.kill()
 
 
 if __name__ == "__main__":
-    test_2tls_relaxation_matches_analytical_via_socket()
+    test_2tls_relaxation_matches_analytical_via_socket(plotting=True)

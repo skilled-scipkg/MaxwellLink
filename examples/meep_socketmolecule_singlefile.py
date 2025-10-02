@@ -13,7 +13,8 @@ resolution = 10
 dipole_moment = 1e-1
 frequency = 1.0
 
-hub = mxl.SocketHub(host="localhost", port=31886, timeout=10.0, latency=1e-5)
+host, port = mxl.get_available_host_port()
+hub = mxl.SocketHub(host=host, port=port, timeout=10.0, latency=1e-5)
 
 molecule1 = mxl.SocketMolecule(
     hub=hub,
@@ -35,11 +36,16 @@ sim = mp.Simulation(
     resolution=resolution,
 )
 
-sim.run(
-    mxl.update_molecules(hub=hub, sources_non_molecule=[], molecules=[molecule1]),
-    until=90,
+proc = mxl.launch_driver(
+    command=f' --model tls --port {port} --param "omega=0.242, mu12=187, orientation=2, pe_initial=1e-4"'
 )
 
+sim.run(
+    mxl.update_molecules(hub=hub, sources_non_molecule=[], molecules=[molecule1]),
+    until=200,
+)
+
+mxl.terminate_driver(proc=proc)
 
 # if we are running this script directly, plot the results
 if __name__ == "__main__" and mp.am_master():
@@ -68,8 +74,10 @@ if __name__ == "__main__" and mp.am_master():
     print("Standard deviation of the difference / population[0]:", std_dev)
     # calculate the maximum absolute difference
     max_abs_diff = np.max(np.abs(population - population_analytical)) / population[0]
+
     print("Maximum absolute difference / population[0]:", max_abs_diff)
-    assert std_dev < 0.004 and max_abs_diff < 0.01
+    assert std_dev < 0.003 and max_abs_diff < 0.008
+
     plt.figure()
     plt.plot(time_mu, population, label="Numerical")
     plt.plot(time_mu, population_analytical, label="Analytical", linestyle="--")

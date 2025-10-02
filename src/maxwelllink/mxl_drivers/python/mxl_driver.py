@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 import argparse
+import subprocess
+import shlex
+import time
+import shutil
+import os
 import socket, json
 import numpy as np
 import struct
+from maxwelllink.sockets import am_master
 
 # from maxwelllink.sockets import *
 
@@ -416,6 +422,72 @@ def mxl_driver_main():
         driver=d_f,
         sockets_prefix=args.sockets_prefix,
     )
+
+
+def _clean_env_for_subprocess():
+    env = os.environ.copy()
+    # Nuke anything that makes a child think it's an MPI rank
+    prefixes = (
+        "PMI_",
+        "PMIX_",
+        "OMPI_",
+        "MPI_",
+        "MPICH_",
+        "I_MPI_",
+        "HYDRA_",
+        "SLURM_",
+        "FI_",
+        "UCX_",
+        "PSM2_",
+        "PMI",  # catch odd ones
+    )
+    for k in list(env.keys()):
+        for p in prefixes:
+            if k.startswith(p):
+                env.pop(k, None)
+                break
+    # Some MPIs set these exact names without a prefix
+    for k in ("PMI_FD", "PMI_PORT", "PMI_ID", "PMI_RANK", "PMI_SIZE"):
+        env.pop(k, None)
+    return env
+
+
+def launch_driver(
+    command='--model tls --port 31415 --param "omega=0.242, mu12=187, orientation=2, pe_initial=1e-4" --verbose',
+    sleep_time=0.5,
+):
+    """
+    Helper function to launch the driver in a local background process.
+    Returns the subprocess.Popen object for the launched process.
+    """
+    if am_master():
+        print(f"Launching driver with command: mxl_driver.py {command}")
+        # launch the external driver (client)
+        driver_argv = shlex.split(shutil.which("mxl_driver.py") + " " + command)
+        # Use a fresh, non-blocking subprocess; inherit env/stdio for easy debugging
+        proc = subprocess.Popen(driver_argv, env=_clean_env_for_subprocess())
+        time.sleep(sleep_time)
+        return proc
+    else:
+        return None
+
+
+def terminate_driver(proc, timeout=2.0):
+    """
+    Helper function to terminate the driver process launched by launch_driver.
+    """
+    if proc is not None and am_master():
+        # Give it a moment to shut down naturally after the sim closes the socket
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.terminate()
+            print("Driver did not exit cleanly, sent terminate signal")
+            try:
+                proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                print("Driver did not terminate, sent kill signal")
 
 
 if __name__ == "__main__":

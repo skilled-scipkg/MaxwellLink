@@ -228,6 +228,15 @@ class ClientState:
     extras: dict = field(default_factory=dict)
 
 
+def get_available_host_port() -> int:
+    """Helper function to ask the OS for a local host and free TCP port.
+    Returns (host, port) tuple.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return "127.0.0.1", s.getsockname()[1]
+
+
 # helper function to determine whether this processor is the MPI master using mpi4py
 def am_master():
     try:
