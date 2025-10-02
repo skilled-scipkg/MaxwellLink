@@ -149,14 +149,19 @@ def update_molecules_no_socket(sources_non_molecule=[], molecules=[]):
             molecule._update_source_amplitude()
 
             # the idea is to combine the sources of molecules with the same polarization distribution (for accelerated calculations)
-            if unique_molecule_sources.get(molecule.polarization_fingerprint_hash) is None:
-                unique_molecule_sources[molecule.polarization_fingerprint_hash] = molecule.sources
+            if (
+                unique_molecule_sources.get(molecule.polarization_fingerprint_hash)
+                is None
+            ):
+                unique_molecule_sources[molecule.polarization_fingerprint_hash] = (
+                    molecule.sources
+                )
             else:
                 for idx, source in enumerate(molecule.sources):
                     unique_molecule_sources[molecule.polarization_fingerprint_hash][
                         idx
                     ].amplitude += source.amplitude
-        
+
         for mol_sources in unique_molecule_sources.values():
             sources.extend(mol_sources)
         sim.change_sources(sources)
@@ -981,13 +986,22 @@ def update_molecules_no_mpi(
                 mol._update_source_amplitude(np.array(source_amp_au))
 
                 # If multiple molecules share the same polarization distribution, we sum their source amplitudes
-                if unique_molecule_sources.get(mol.polarization_fingerprint_hash) is None:
-                    unique_molecule_sources[mol.polarization_fingerprint_hash] = mol.sources
+                if (
+                    unique_molecule_sources.get(mol.polarization_fingerprint_hash)
+                    is None
+                ):
+                    unique_molecule_sources[mol.polarization_fingerprint_hash] = (
+                        mol.sources
+                    )
                 else:
-                    unique_sources = unique_molecule_sources[mol.polarization_fingerprint_hash]
+                    unique_sources = unique_molecule_sources[
+                        mol.polarization_fingerprint_hash
+                    ]
                     for idx, s in enumerate(mol.sources):
                         unique_sources[idx].amplitude += s.amplitude
-                    unique_molecule_sources[mol.polarization_fingerprint_hash] = unique_sources
+                    unique_molecule_sources[mol.polarization_fingerprint_hash] = (
+                        unique_sources
+                    )
 
                 extra_blob = responses[mol.molecule_id].get("extra", b"")
                 if extra_blob:
@@ -1213,11 +1227,15 @@ def update_molecules(
             if unique_molecule_sources.get(mol.polarization_fingerprint_hash) is None:
                 unique_molecule_sources[mol.polarization_fingerprint_hash] = mol.sources
             else:
-                unique_sources = unique_molecule_sources[mol.polarization_fingerprint_hash]
+                unique_sources = unique_molecule_sources[
+                    mol.polarization_fingerprint_hash
+                ]
                 for idx, s in enumerate(mol.sources):
                     unique_sources[idx].amplitude += s.amplitude
-                unique_molecule_sources[mol.polarization_fingerprint_hash] = unique_sources
-            
+                unique_molecule_sources[mol.polarization_fingerprint_hash] = (
+                    unique_sources
+                )
+
             # Keep extras only on master to reduce communication cost
             if _is_master:
                 extra_blob = extras_by_id.get(mol.molecule_id, b"")
@@ -1232,7 +1250,6 @@ def update_molecules(
         # Combine all unique sources (to save FDTD simulation overhead for many molecules)
         for unique_sources in unique_molecule_sources.values():
             all_sources.extend(unique_sources)
-
 
         # ============= 7) APPLY SOURCES COLLECTIVELY =============
         sim.change_sources(all_sources)

@@ -441,10 +441,14 @@ class RTTDDFTModel(DummyModel):
                             f"[molecule {self.molecule_id}] Applying initial delta-kick perturbation with strength {self.delta_kick_au} a.u. along direction(s) {self.delta_kick_direction}."
                         )
                     self.Fa += self.delta_kick_au * (
-                        self.mu_ints[0] * self.delta_kick_vec[0] + self.mu_ints[1] * self.delta_kick_vec[1] + self.mu_ints[2] * self.delta_kick_vec[2]
+                        self.mu_ints[0] * self.delta_kick_vec[0]
+                        + self.mu_ints[1] * self.delta_kick_vec[1]
+                        + self.mu_ints[2] * self.delta_kick_vec[2]
                     )
                     self.Fb += self.delta_kick_au * (
-                        self.mu_ints[0] * self.delta_kick_vec[0] + self.mu_ints[1] * self.delta_kick_vec[1] + self.mu_ints[2] * self.delta_kick_vec[2]
+                        self.mu_ints[0] * self.delta_kick_vec[0]
+                        + self.mu_ints[1] * self.delta_kick_vec[1]
+                        + self.mu_ints[2] * self.delta_kick_vec[2]
                     )
 
                 # Orthonormal-basis densities & KS matrices
