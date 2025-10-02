@@ -1,6 +1,6 @@
 #!/bin/bash
 
-python test_meep_socketmolecule_tlsrelaxation.py &
+python meep_socketmolecule_tlsrelaxation.py &
 
 echo "After launching MEEP, sleeping 20 seconds to wait for the socket server to start..."
 sleep 20

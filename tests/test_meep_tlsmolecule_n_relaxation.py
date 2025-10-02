@@ -3,8 +3,7 @@ import pytest
 
 mp = pytest.importorskip("meep", reason="MEEP/pymeep is required for this test")
 
-# import maxwelllink as mxl
-from maxwelllink.molecule_fast import TLSMolecule, update_molecules_no_socket
+import maxwelllink as mxl
 
 
 @pytest.mark.slow
@@ -29,7 +28,7 @@ def test_ntls_relaxation_matches_analytical():
     frequency = 1.0
     tls_lst = []
     for idx in range(n_tls):
-        tls = TLSMolecule(
+        tls = mxl.TLSMolecule(
             resolution=resolution,
             center=mp.Vector3(0, 0, 0),
             size=mp.Vector3(1, 1, 1),
@@ -53,7 +52,7 @@ def test_ntls_relaxation_matches_analytical():
 
     # run coupled update (no sockets path)
     sim.run(
-        update_molecules_no_socket(sources_non_molecule=[], molecules=tls_lst),
+        mxl.update_molecules_no_socket(sources_non_molecule=[], molecules=tls_lst),
         until=90,
     )
 
