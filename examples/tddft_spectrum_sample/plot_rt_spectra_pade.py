@@ -1,13 +1,11 @@
 """
 This script contains the following two figures
 
-(a) Plot HCN molecule under electronic strong coupling
-1. Outcav muz(t) 2. Outcav electronic spectrum
-3. Incav muz(t) 4. Incav electronic spectrum
-
-(b) Rabi splitting dependence and cavity loss dependence
-
-(c), (d) Same plots for VSC
+(a) Plot dipole dynamics of a given molecule
+(b) Plot electronic excited-state transitions using real-time TDDFT vs linear-response TDDFT
+calculated from calculate_lr_rt_tddft.py, where the real-time dipole info is stored in
+rt_tddft_energy_dipoles_0.txt, and the linear-response TDDFT states are stored in
+psi4_lrtddft_output_id_0.txt.
 """
 
 import numpy as np
@@ -167,7 +165,6 @@ def get_dipole(filename):
     spy, freq = pade(t, muy)
     spz, freq = pade(t, muz)
 
-    mu_norm = muz
     freq_ev = freq * au2eV
     # sp_tot = np.abs(spx) + np.abs(spy) + np.abs(spz)
     sp_tot = -freq * (
@@ -178,7 +175,7 @@ def get_dipole(filename):
     nmax = int(e_cutoff_ev // df)
     freq_ev = freq_ev[0:nmax]
     sp_tot = sp_tot[0:nmax]
-    return t_fs, mu_norm, freq_ev, sp_tot
+    return t_fs, muz, freq_ev, sp_tot
 
 
 # get linear response data
@@ -187,10 +184,8 @@ freq_lr, e_sp_lr = get_LR_spectrum(filename="./psi4_lrtddft_output_id_0.txt")
 
 def plot_dynamics():
     # get real-time data
-    path_outcav = "./"
-    t_outcav, mu_outcav, freq_outcav, sp_outcav = get_dipole(
-        filename=path_outcav + "rt_tddft_energy_dipoles_0.txt"
-    )
+    path = "./"
+    t, mu_z, freq, sp = get_dipole(filename=path + "rt_tddft_energy_dipoles_0.txt")
 
     fig, axes = clp.initialize(
         1,
@@ -208,7 +203,7 @@ def plot_dynamics():
     labels = ["RT-TDDFT", "LR-TDDFT"]
     colors = [clp.navy_blue, "k--"]
 
-    x1s, y1s = [t_outcav], [mu_outcav]
+    x1s, y1s = [t], [mu_z]
     clp.plotone(
         x1s,
         y1s,
@@ -217,12 +212,13 @@ def plot_dynamics():
         labels=labels,
         lw=0.5,
         ylabel=r"$\mu_z^{\rm e}(t)$ [a.u.]",
+        xlabel=r"Time [fs]",
         showlegend=False,
         yscientific=True,
     )
 
-    x2s, y2s = [freq_outcav, freq_lr], [
-        sp_outcav / np.max(sp_outcav),
+    x2s, y2s = [freq, freq_lr], [
+        sp / np.max(sp),
         e_sp_lr / np.max(e_sp_lr),
     ]
     clp.plotone(
@@ -233,6 +229,7 @@ def plot_dynamics():
         labels=labels,
         lw=1,
         ylabel=r"$P_{\rm e}(\omega)$ [arb. units]",
+        xlabel=r"Frequency [eV]",
     )
 
     clp.adjust(tight_layout=True)
