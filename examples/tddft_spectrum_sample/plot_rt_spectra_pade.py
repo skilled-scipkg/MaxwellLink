@@ -182,14 +182,14 @@ def get_dipole(filename):
 
 
 # get linear response data
-freq_lr, e_sp_lr = get_LR_spectrum(filename="./excitations_LR.txt")
+freq_lr, e_sp_lr = get_LR_spectrum(filename="./psi4_lrtddft_output_id_0.txt")
 
 
 def plot_dynamics():
     # get real-time data
     path_outcav = "./"
     t_outcav, mu_outcav, freq_outcav, sp_outcav = get_dipole(
-        filename=path_outcav + "rt_tddft_energy_dipoles.txt"
+        filename=path_outcav + "rt_tddft_energy_dipoles_0.txt"
     )
 
     fig, axes = clp.initialize(

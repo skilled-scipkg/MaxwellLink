@@ -1,5 +1,4 @@
 import maxwelllink as mxl
-import numpy as np
 
 model = mxl.mxl_drivers.python.models.RTTDDFTModel(
     engine="psi4",
@@ -10,9 +9,14 @@ model = mxl.mxl_drivers.python.models.RTTDDFTModel(
     delta_kick_au=1.0e-3,
     memory="2GB",
     verbose=False,
-    remove_permanent_dipole=False
+    remove_permanent_dipole=False,
 )
 
 model.initialize(dt_new=0.12, molecule_id=0)
 
-model._get_lr_tddft_spectrum(states=5, tda=False)
+model._get_lr_tddft_spectrum(states=20, tda=False)
+
+# reset and run real-time TDDFT
+model.initialize(dt_new=0.12, molecule_id=0)
+
+model._propagate_full_rt_tddft(nsteps=1000)
