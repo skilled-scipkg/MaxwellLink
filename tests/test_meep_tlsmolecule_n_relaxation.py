@@ -1,14 +1,14 @@
-# tests/test_tls_relaxation.py
 import numpy as np
 import pytest
 
 mp = pytest.importorskip("meep", reason="MEEP/pymeep is required for this test")
 
-import maxwelllink as mxl
+# import maxwelllink as mxl
+from maxwelllink.molecule_fast import TLSMolecule, update_molecules_no_socket
 
 
 @pytest.mark.slow
-def test_tls_relaxation_matches_analytical():
+def test_ntls_relaxation_matches_analytical():
     """
     Numerically integrate TLS population relaxation and compare
     against the analytical golden-rule rate in 2D.
@@ -24,21 +24,24 @@ def test_tls_relaxation_matches_analytical():
     resolution = 10
 
     # TLS definition
-    dipole_moment = 1e-1
+    n_tls = 10
+    dipole_moment = 1e-1 / np.sqrt(n_tls)
     frequency = 1.0
-    tls = mxl.TLSMolecule(
-        resolution=resolution,
-        center=mp.Vector3(0, 0, 0),
-        size=mp.Vector3(1, 1, 1),
-        frequency=frequency,
-        dipole_moment=dipole_moment,
-        sigma=0.1,
-        dimensions=2,
-        orientation=mp.Ez,
-    )
-
-    # small initial excited-state population
-    tls.reset_tls_population(1e-4)
+    tls_lst = []
+    for idx in range(n_tls):
+        tls = TLSMolecule(
+            resolution=resolution,
+            center=mp.Vector3(0, 0, 0),
+            size=mp.Vector3(1, 1, 1),
+            frequency=frequency,
+            dipole_moment=dipole_moment,
+            sigma=0.1,
+            dimensions=2,
+            orientation=mp.Ez,
+        )
+        # small initial excited-state population
+        tls.reset_tls_population(1e-4)
+        tls_lst.append(tls)
 
     sim = mp.Simulation(
         cell_size=cell,
@@ -50,17 +53,18 @@ def test_tls_relaxation_matches_analytical():
 
     # run coupled update (no sockets path)
     sim.run(
-        mxl.update_molecules_no_socket(sources_non_molecule=[], molecules=[tls]),
+        update_molecules_no_socket(sources_non_molecule=[], molecules=tls_lst),
         until=90,
     )
 
     # Only rank 0 collects/asserts (safe under MPI or serial)
     if mp.am_master():
+        tls = tls_lst[0]  # check only the first TLS
         population = np.array([np.real(ad["Pe"]) for ad in tls.additional_data_history])
         time = np.array([np.real(ad["time"]) for ad in tls.additional_data_history])
 
         # analytical golden-rule rate in 2D
-        gamma = dipole_moment**2 * (frequency) ** 2 / 2.0
+        gamma = dipole_moment**2 * (frequency) ** 2 / 2.0 * n_tls
         population_analytical = population[0] * np.exp(-time * gamma)
 
         std_dev = np.std(population - population_analytical) / population[0]
