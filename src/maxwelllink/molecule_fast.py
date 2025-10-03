@@ -694,6 +694,7 @@ class SocketMolecule(DummyMolecule):
         super().__init__(
             dt=0.5 / resolution, dx=1.0 / resolution, center=center, size=size
         )
+        self.resolution = resolution
         self.dimensions = dimensions
         self.sigma = sigma
         self.rescaling_factor = rescaling_factor
@@ -754,6 +755,8 @@ class SocketMolecule(DummyMolecule):
         # register this molecule with the hub so it knows to expect a client
         if mp.am_master():
             self.hub.register_molecule(self.molecule_id)
+            if self.molecule_id == 0:
+                self.units_helper()
 
         # store the additional data the driver code transfers back to SocketMolecule. Each entry is a dict.
         self.additional_data_history = []
@@ -906,6 +909,44 @@ class SocketMolecule(DummyMolecule):
         """Set amplitudes per component from driver-returned vector (atomic units)."""
         amp_mu = atomic_to_meep_units_SourceAmp(amp_vec3, self.time_units_fs)
         return np.asarray(amp_mu, dtype=float)
+
+    def units_helper(self):
+        """
+        TBD: Helper function to explain the unit system used in MEEP and its connection to atomic units.
+        This units helper will reduce the confusion when using MEEP with molecular dynamics.
+        """
+        # calculate units conversion factors
+        mu2efield_au = meep_to_atomic_units_E(1.0, self.time_units_fs)
+        mu2efield_si = mu2efield_au * 5.14220675112e11  # V/m
+        # audipoledt2mu = atomic_to_meep_units_SourceAmp(1.0, self.time_units_fs)
+        print(
+            "\n\n ######### MaxwellLink Units Helper #########\n",
+            "MEEP uses its own units system, which is based on the speed of light in vacuum (c=1), \n",
+            "the permittivity of free space (epsilon_0=1), and the permeability of free space (mu_0=1). \n",
+            "To couple MEEP with molecular dynamics, we set [c] = [epsilon_0] = [mu_0] = [hbar] = 1. \n",
+            "By further defining the time unit as %.2E fs, we can fix the units system of MEEP (mu).\n\n"
+            % self.time_units_fs,
+            "Given the simulation resolution = %d,\n - FDTD dt = %.2E mu (0.5/resolution) = %.2E fs\n"
+            % (self.resolution, self.dt, self.dt * self.time_units_fs),
+            "- FDTD dx = %.2E mu (1.0/resolution) = %.2E nm\n"
+            % (self.dx, self.dx * self.time_units_fs * 299.792458),
+            "- Time [t]: 1 mu = %.2E fs = %.2E a.u.\n"
+            % (self.time_units_fs, self.time_units_fs * fs_to_au),
+            "- Length [x]: 1 mu = %.2E nm\n" % (299.792458 * self.time_units_fs),
+            # "- Frequency (defining MEEP source frequency) [f]: 1 mu = %.4E THz\n"
+            # % (41.341373335 / self.time_units_fs / 2.0 / np.pi),
+            "- Angular frequency [omega = 2 pi * f]: 1 mu = %.4E eV = %.4E a.u.\n"
+            % (
+                0.242 / self.time_units_fs * 27.211 * 0.1,
+                0.242 / self.time_units_fs * 0.1,
+            ),
+            "- Electric field [E]: 1 mu = %.2E V/m = %.2E a.u.\n"
+            % (mu2efield_si, mu2efield_au),
+            # "- Dipole moment [d]: 1 mu = %.2E C*m = %.2E a.u.\n"
+            # % (1.0 * self.dx * 299.792458, 1.0 * self.dx * 299.792458 * 1.0),
+            "Hope this helps!\n",
+            "############################################\n\n",
+        )
 
 
 ### Collective step function for many socket molecules ###
