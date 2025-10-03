@@ -10,12 +10,18 @@ import os
 import socket, json
 import numpy as np
 import struct
-from maxwelllink.sockets import am_master
 
-# from maxwelllink.sockets import *
+# helper function to determine whether this processor is the MPI master using mpi4py
+def am_master():
+    try:
+        from mpi4py import MPI as _MPI
 
-# import sys
-
+        _COMM = _MPI.COMM_WORLD
+        _RANK = _COMM.Get_rank()
+    except Exception:
+        _COMM = None
+        _RANK = 0
+    return _RANK == 0
 
 _INT32 = struct.Struct("<i")
 _FLOAT64 = struct.Struct("<d")
