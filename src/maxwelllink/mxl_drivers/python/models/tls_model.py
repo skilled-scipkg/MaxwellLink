@@ -1,6 +1,10 @@
 import numpy as np
 from scipy.linalg import expm
-from .dummy_model import DummyModel
+
+try:
+    from .dummy_model import DummyModel
+except:
+    from dummy_model import DummyModel
 import os
 
 

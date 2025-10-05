@@ -17,14 +17,14 @@ n_tls = int(sys.argv[1]) if len(sys.argv) > 1 else 1
 tls_lst = []
 for idx in range(n_tls):
     tls = mxl.TLSMolecule(
-    resolution=resolution,
-    center=mp.Vector3(0, 0, 0),
-    size=mp.Vector3(1, 1, 1),
-    frequency=frequency,
-    dipole_moment=dipole_moment,
-    sigma=0.1,
-    dimensions=2,
-    orientation=mp.Ez,
+        resolution=resolution,
+        center=mp.Vector3(0, 0, 0),
+        size=mp.Vector3(1, 1, 1),
+        frequency=frequency,
+        dipole_moment=dipole_moment,
+        sigma=0.1,
+        dimensions=2,
+        orientation=mp.Ez,
     )
 
     # switch from ground state to excited-state population with 1e-4
@@ -40,7 +40,8 @@ sim = mp.Simulation(
 )
 
 sim.run(
-    mxl.update_molecules_no_socket(sources_non_molecule=[], molecules=tls_lst), until=2000
+    mxl.update_molecules_no_socket(sources_non_molecule=[], molecules=tls_lst),
+    until=2000,
 )
 
 # if we are running this script directly, plot the results

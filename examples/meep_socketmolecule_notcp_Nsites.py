@@ -24,10 +24,10 @@ for i in range(n_mol):
         molecule_id=i,
         resolution=resolution,
         center=mp.Vector3(0, 0, 0),
-    size=mp.Vector3(1, 1, 1),
-    sigma=0.1,
-    dimensions=2,
-    time_units_fs=0.1,
+        size=mp.Vector3(1, 1, 1),
+        sigma=0.1,
+        dimensions=2,
+        time_units_fs=0.1,
     )
     mol_lst.append(molecule)
 
@@ -40,24 +40,24 @@ sim = mp.Simulation(
     resolution=resolution,
 )
 
-'''
+"""
 proc_lst = []
 for i in range(n_mol):
     proc = mxl.launch_driver(
         command=f' --model tls --unix --address mx10 --param "omega=0.242, mu12=187, orientation=2, pe_initial=1e-4"'
     )
     proc_lst.append(proc)
-'''
+"""
 
 sim.run(
     mxl.update_molecules(hub=hub, sources_non_molecule=[], molecules=mol_lst),
-    until=500/n_mol,
+    until=500 / n_mol,
 )
 
-'''
+"""
 for proc in proc_lst:
     mxl.terminate_driver(proc=proc)
-'''
+"""
 
 # if we are running this script directly, plot the results
 if __name__ == "__main__" and mp.am_master():

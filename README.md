@@ -38,10 +38,13 @@ pip install .
 ### Install optional molecular drivers
 To fully utilize **MaxwellLink**, we can install one or a few of the following packages.
 ```bash
-# 1. RT-TDDFT driver using Psi4 quantum chemistry code 
+# 1. Model Hamiltonian driver using QuTiP 
+conda install conda-forge::qutip
+
+# 2. RT-TDDFT driver using Psi4 quantum chemistry code 
 conda install conda-forge::psi4
 
-# 2. classical MD driver using modified LAMMPS (with fix mxl)
+# 3. classical MD driver using modified LAMMPS (with fix mxl)
 mxl_install_lammps
 ```
 
@@ -72,9 +75,7 @@ pml_layers = [mp.PML(2.0)]
 resolution = 10
 
 # Initialize the SocketHub
-# If the drivers and MEEP are running in different computing nodes, 
-# please set host="", latency=1e-3 or 1e-2 (depending on internet connection)
-hub = mxl.SocketHub(host="localhost", port=31415, timeout=10.0, latency=1e-4) 
+hub = mxl.SocketHub(unixsocket="mxl", timeout=10.0, latency=1e-4) 
 
 # Define a SocketMolecule with the location and size
 molecule1 = mxl.SocketMolecule(hub=hub, 
@@ -94,13 +95,9 @@ sim = mp.Simulation(cell_size=cell,
                    boundary_layers=pml_layers,
                    resolution=resolution)
 
-# Run with all molecules synchronized each step. Please provide all molecules in [molecule1, ...]
+# Run with all molecules synchronized each step. 
+# Please provide all molecules in [molecule1, ...]
 sim.run(mxl.update_molecules(hub, [molecule1], sources_non_molecule), until=10)
-
-# Retrieve molecular data after the simulation
-# Different molecular drivers may have different output data
-t = np.array([np.real(additional_data["time_au"]) for additional_data in molecule1.additional_data_history]).flatten()
-mu_z_au = np.array([np.real(additional_data["mu_z_au"]) for additional_data in molecule1.additional_data_history]).flatten()
 ```
 
 After running the above python code, **we need to lunch the driver code in a separate terminal for connecting with FDTD**. At this moment, both the **Python** and **C++** drivers are available for usage. 
@@ -115,12 +112,21 @@ The molecular systems can be described by the following three levels of theory.
 
 #### 1. **Model systems**
 
-An **electronic two-level system (tls)** model is provided in the **Python driver**. 
+- An **electronic two-level system (tls)** model is provided in the **Python driver**.  
 
 A sample bash input for setting up the **tls** model is as follows: 
 
 ```bash
-mxl_driver.py --model tls --port 31415 --param "omega=0.242, mu12=187, orientation=2, pe_initial=0.01" --verbose
+mxl_driver.py --model tls --unix --address mxl --param "omega=0.242, mu12=187, orientation=2, pe_initial=0.01"
+```
+
+- A general **QuTiP (qutip)** model for an arbitrary model quantum Hamiltonian is provided in the **Python driver**.  
+
+A sample bash input for setting up the **qutip** model is as follows: 
+
+
+```bash
+mxl_driver.py --model qutip --unix --address mxl --param "preset=tls, fd_dmudt=True, preset_kwargs=omega=0.242,mu12=187,orientation=2,pe_initial=1e-3" 
 ```
 
 Please check [python/](./src/maxwelllink/mxl_drivers/python/) for detailed usage. 
@@ -133,7 +139,7 @@ A **real-time time-dependent density functional theory (rttddft)** model is prov
 A sample bash input for setting up the **rttddft** model is as follows: 
 
 ```bash
-mxl_driver.py --model rttddft --port 31415 --param "molecule_xyz=PATH_TO_MaxwellLink/tests/data/hcn.xyz, checkpoint=false, restart=false" --verbose
+mxl_driver.py --model rttddft --unix --address mxl --param "molecule_xyz=PATH_TO_MaxwellLink/tests/data/hcn.xyz, checkpoint=false, restart=false" 
 ```
 
  Please check [python/](./src/maxwelllink/mxl_drivers/python/) for detailed usage. 

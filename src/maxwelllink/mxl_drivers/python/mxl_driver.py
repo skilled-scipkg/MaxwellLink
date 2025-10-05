@@ -11,6 +11,7 @@ import socket, json
 import numpy as np
 import struct
 
+
 # helper function to determine whether this processor is the MPI master using mpi4py
 def am_master():
     try:
@@ -22,6 +23,7 @@ def am_master():
         _COMM = None
         _RANK = 0
     return _RANK == 0
+
 
 _INT32 = struct.Struct("<i")
 _FLOAT64 = struct.Struct("<d")

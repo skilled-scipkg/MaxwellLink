@@ -10,8 +10,6 @@ except:
     from dummy_model import DummyModel
 import os
 
-# TBD: we need to think carefully the light-matter coupling term when the molecule has permanent dipole moments.
-
 
 class RTTDDFTModel(DummyModel):
     """
