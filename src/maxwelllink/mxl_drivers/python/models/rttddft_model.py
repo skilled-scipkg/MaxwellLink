@@ -130,6 +130,8 @@ class RTTDDFTModel(DummyModel):
         self.energies = []
         self.times = []
 
+    # -------------- heavy-load initialization (at INIT) --------------
+
     def initialize(self, dt_new, molecule_id):
         """
         Set the time step and molecule ID for this quantum dynamics model.
@@ -169,6 +171,8 @@ class RTTDDFTModel(DummyModel):
         if self.restart and self.checkpoint:
             self._reset_from_checkpoint(self.molecule_id)
             self.restarted = True
+
+    # -------------- Psi4 specific helper functions --------------
 
     def _init_psi4(self):
         """
@@ -436,6 +440,8 @@ class RTTDDFTModel(DummyModel):
 
         return Etot, dip_vec
 
+    # -------------- one FDTD step under E-field --------------
+
     def propagate(self, effective_efield_vec):
         """
         Propagate the quantum molecular dynamics given the effective electric field vector.
@@ -549,67 +555,6 @@ class RTTDDFTModel(DummyModel):
                 self.count += 1
                 self.t += self.dt_rttddft_au
 
-    def _propagate_full_rt_tddft(self, nsteps=100, effective_efield_vec=np.zeros(3)):
-        """
-        Standalone function to propagate the RT-TDDFT for a given number of steps.
-        This function is mainly for testing and validation purposes.
-        To use this function, the self.delta_kick_au parameter in self.__init__()
-        should be set to a non-zero value to apply an initial delta-kick perturbation at t=0.
-
-        + **`nsteps`** (int): Number of MEEP steps to propagate. Default is 100.
-        + **`effective_efield_vec`**: Effective electric field vector received from MEEP in the form [Ex, Ey, Ez]. Default is [0.0, 0.0, 0.0].
-        """
-        for idx in range(nsteps):
-            self.propagate(effective_efield_vec)
-        # print out the last step info
-        print(
-            f"Step {self.count:4d} Time {self.dt_rttddft_au*self.count:.6f}  Etot = {self.energies[-1]:.10f} Eh  ΔE = {self.energies[-1]-self.E0:.10f} Eh,  μx = {self.dipoles[-1][0]:.6f} a.u.,  μy = {self.dipoles[-1][1]:.6f} a.u.,  μz = {self.dipoles[-1][2]:.6f} a.u."
-        )
-
-        # ===== Save data to disk =====
-        dipoles = np.array(self.dipoles)
-        energies = np.array(self.energies)
-        times = np.array(self.times)
-        np.savetxt(
-            "rt_tddft_energy_dipoles_%d.txt" % self.molecule_id,
-            np.column_stack((times, energies, dipoles)),
-            header="Time(a.u.)  Energy(a.u.)  mu_x(a.u.)  mu_y(a.u.)  mu_z(a.u.)",
-            fmt="%.10E %.10E %.10E %.10E %.10E",
-        )
-
-    def _get_lr_tddft_spectrum(self, states=20, tda=False):
-        """
-        Standalone function to compute the linear absorption spectrum of molecules using the linear-response TDDFT (LR-TDDFT) method.
-        This function is mainly for testing and validation purposes.
-
-        + **`states`** (int): Number of excited states to compute. Default is 20.
-        + **`tda`** (bool): Whether to use the Tamm-Dancoff approximation (TDA). Default is False (full TDDFT).
-        0 = full TDDFT, 1 = TDA.
-        """
-        if self.engine == "psi4":
-            from psi4.driver.procrouting.response.scf_response import tdscf_excitations
-
-            res = tdscf_excitations(self.wfn, states=states, tda=tda, triplets="none")
-            # Collect poles (Hartree)
-            poles = np.array([r["EXCITATION ENERGY"] for r in res])
-
-            tdm_len = np.array(
-                [r["ELECTRIC DIPOLE TRANSITION MOMENT (LEN)"] for r in res]
-            )
-            mu2 = np.sum(tdm_len**2, axis=1)
-            # Oscillator strengths (length gauge): f = 2/3 * \omega * |\mu|^2   (\omega in a.u.)
-            oscillator_strengths = (2.0 / 3.0) * poles * mu2
-
-            # save to file
-            with open("psi4_lrtddft_output_id_%d.txt" % self.molecule_id, "w") as f:
-                f.write("# Excitation energies (eV), oscillator strengths\n")
-                for p, e in zip(poles, oscillator_strengths):
-                    f.write(f"{p*27.211399} {e}\n")
-
-            # print to screen
-            print("Energy (eV):", poles * 27.211399)
-            print("Oscillator strengths:", oscillator_strengths)
-
     def calc_amp_vector(self):
         """
         Update the source amplitude vector after propagating this molecule for one time step.
@@ -661,6 +606,8 @@ class RTTDDFTModel(DummyModel):
         self.step_started = False
 
         return amp_vec
+
+    # ------------ optional operation / checkpoint --------------
 
     def append_additional_data(self):
         """
@@ -745,6 +692,69 @@ class RTTDDFTModel(DummyModel):
         self.Db = snapshot["Db"]
         self.Fa = snapshot["Fa"]
         self.Fb = snapshot["Fb"]
+
+    # ------------ standalone functions for debugging and testing --------------
+
+    def _propagate_full_rt_tddft(self, nsteps=100, effective_efield_vec=np.zeros(3)):
+        """
+        Standalone function to propagate the RT-TDDFT for a given number of steps.
+        This function is mainly for testing and validation purposes.
+        To use this function, the self.delta_kick_au parameter in self.__init__()
+        should be set to a non-zero value to apply an initial delta-kick perturbation at t=0.
+
+        + **`nsteps`** (int): Number of MEEP steps to propagate. Default is 100.
+        + **`effective_efield_vec`**: Effective electric field vector received from MEEP in the form [Ex, Ey, Ez]. Default is [0.0, 0.0, 0.0].
+        """
+        for idx in range(nsteps):
+            self.propagate(effective_efield_vec)
+        # print out the last step info
+        print(
+            f"Step {self.count:4d} Time {self.dt_rttddft_au*self.count:.6f}  Etot = {self.energies[-1]:.10f} Eh  ΔE = {self.energies[-1]-self.E0:.10f} Eh,  μx = {self.dipoles[-1][0]:.6f} a.u.,  μy = {self.dipoles[-1][1]:.6f} a.u.,  μz = {self.dipoles[-1][2]:.6f} a.u."
+        )
+
+        # ===== Save data to disk =====
+        dipoles = np.array(self.dipoles)
+        energies = np.array(self.energies)
+        times = np.array(self.times)
+        np.savetxt(
+            "rt_tddft_energy_dipoles_%d.txt" % self.molecule_id,
+            np.column_stack((times, energies, dipoles)),
+            header="Time(a.u.)  Energy(a.u.)  mu_x(a.u.)  mu_y(a.u.)  mu_z(a.u.)",
+            fmt="%.10E %.10E %.10E %.10E %.10E",
+        )
+
+    def _get_lr_tddft_spectrum(self, states=20, tda=False):
+        """
+        Standalone function to compute the linear absorption spectrum of molecules using the linear-response TDDFT (LR-TDDFT) method.
+        This function is mainly for testing and validation purposes.
+
+        + **`states`** (int): Number of excited states to compute. Default is 20.
+        + **`tda`** (bool): Whether to use the Tamm-Dancoff approximation (TDA). Default is False (full TDDFT).
+        0 = full TDDFT, 1 = TDA.
+        """
+        if self.engine == "psi4":
+            from psi4.driver.procrouting.response.scf_response import tdscf_excitations
+
+            res = tdscf_excitations(self.wfn, states=states, tda=tda, triplets="none")
+            # Collect poles (Hartree)
+            poles = np.array([r["EXCITATION ENERGY"] for r in res])
+
+            tdm_len = np.array(
+                [r["ELECTRIC DIPOLE TRANSITION MOMENT (LEN)"] for r in res]
+            )
+            mu2 = np.sum(tdm_len**2, axis=1)
+            # Oscillator strengths (length gauge): f = 2/3 * \omega * |\mu|^2   (\omega in a.u.)
+            oscillator_strengths = (2.0 / 3.0) * poles * mu2
+
+            # save to file
+            with open("psi4_lrtddft_output_id_%d.txt" % self.molecule_id, "w") as f:
+                f.write("# Excitation energies (eV), oscillator strengths\n")
+                for p, e in zip(poles, oscillator_strengths):
+                    f.write(f"{p*27.211399} {e}\n")
+
+            # print to screen
+            print("Energy (eV):", poles * 27.211399)
+            print("Oscillator strengths:", oscillator_strengths)
 
 
 if __name__ == "__main__":

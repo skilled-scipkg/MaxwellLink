@@ -413,6 +413,8 @@ class ASEModel(DummyModel):
         self._charges = None
         self._vel_angs_per_fs = None
 
+    # -------------- heavy-load initialization (at INIT) --------------
+
     def initialize(self, dt_new, molecule_id):
         """
         Initialize the model with the new time step and molecule ID.
@@ -462,7 +464,8 @@ class ASEModel(DummyModel):
                 f"calculator={self.calc_name}({self.calc_kwargs})"
             )
 
-    # -------------- one MEEP step under E-field --------------
+    # -------------- one FDTD step under E-field --------------
+
     def propagate(self, effective_efield_vec):
         """
         Propagate the BO molecular dynamics given the effective electric field vector.

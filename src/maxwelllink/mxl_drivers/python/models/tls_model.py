@@ -78,6 +78,8 @@ class TLSModel(DummyModel):
         self.dipole_vec = None
         self.energy = None
 
+    # -------------- heavy-load initialization (at INIT) --------------
+
     def initialize(self, dt_new, molecule_id):
         """
         Set the time step and molecule ID for this quantum dynamics model, and
@@ -101,6 +103,8 @@ class TLSModel(DummyModel):
             self._reset_from_checkpoint(self.molecule_id)
             self.restarted = True
 
+    # -------------- helper function for TLS --------------
+
     def _reset_tls_population(self, excited_population: float = 0.0):
         """
         Reset the TLS population to a specified excited state population in a pure state.
@@ -115,6 +119,8 @@ class TLSModel(DummyModel):
             dtype=np.complex128,
         )
         self.rho = np.dot(self.C, self.C.conj().transpose())
+
+    # -------------- one FDTD step under E-field --------------
 
     def propagate(self, effective_efield_vec):
         """
@@ -160,6 +166,8 @@ class TLSModel(DummyModel):
                 f"[molecule ID {self.molecule_id}] Time: {self.t:.4f} a.u., Dipole: {self.dipole_vec[-1]}, Energy: {self.energy:.6f} a.u., returning Amp: {amp_vec[2]:.6E}"
             )
         return amp_vec
+
+    # ------------ optional operation / checkpoint --------------
 
     def append_additional_data(self):
         """

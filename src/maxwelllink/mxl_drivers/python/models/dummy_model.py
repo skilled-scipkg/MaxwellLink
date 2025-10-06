@@ -31,6 +31,8 @@ class DummyModel:
         self.checkpoint = checkpoint
         self.restart = restart
 
+    # -------------- heavy-load initialization (at INIT) --------------
+
     def initialize(self, dt_new, molecule_id):
         """
         Set the time step and molecule ID for this quantum dynamics model and provide necessary initialization.
@@ -50,13 +52,15 @@ class DummyModel:
         )  # reset the molecule ID assigned by SocketHub
         # perform any additional initialization here as needed
 
+    # -------------- one FDTD step under E-field --------------
+
     def propagate(self, effective_efield_vec):
         """
-        Propagate the quantum molecular dynamics for one MEEP step given the effective electric field vector.
+        Propagate the quantum molecular dynamics for one FDTD step given the effective electric field vector.
         This method should be overridden by subclasses to implement specific propagation logic.
 
-        TIPS: One can implement sub-steps (running many steps for the model per MEEP call) or
-        macrosteps (running one step for the model per few MEEP calls) within this function as needed.
+        TIPS: One can implement sub-steps (running many steps for the model per FDTD call) or
+        macrosteps (running one step for the model per few FDTD calls) within this function as needed.
 
         This method *must be* overridden by subclasses.
 
@@ -79,6 +83,8 @@ class DummyModel:
         """
         # update the amplitude vector here as needed
         return np.array([0.0, 0.0, 0.0])
+
+    # ------------ optional operation / checkpoint --------------
 
     def append_additional_data(self):
         """
@@ -137,6 +143,8 @@ class DummyModel:
         (self.stage_step and self.commit_step) is not used.
         """
         self.t = snapshot["time"]
+
+    # ------------ called by mxl_driver (no need to override) --------------
 
     def stage_step(self, E_vec):
         """

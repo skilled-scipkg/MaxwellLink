@@ -58,8 +58,6 @@ def _factory(cls_path: str) -> Callable:
 
     def _ctor(*args, **kwargs):
         Cls = _load(cls_path)
-        print(f"[mxl_drivers] Using quantum dynamics model: {Cls.__name__}")
-        print(f"[mxl_drivers] Model parameters: {kwargs}")
         return Cls(*args, **kwargs)
 
     return _ctor

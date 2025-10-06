@@ -286,7 +286,7 @@ class QuTiPModel(DummyModel):
         # whether restarted from checkpoint
         self.restarted = False
 
-    # ----------------- heavy-load initialization -----------------
+    # -------------- heavy-load initialization (at INIT) --------------
 
     def initialize(self, dt_new, molecule_id):
         """
@@ -387,7 +387,7 @@ class QuTiPModel(DummyModel):
                     for aj, K_j in Kj.items():
                         print(f"  K_{aj}:\n{K_j}")
 
-    # ----------------- core physics per step -----------------
+    # ----------------- helper functions for QuTiP evolution -----------------
 
     def _effective_unitary_step(self, E_vec):
         """
@@ -423,6 +423,8 @@ class QuTiPModel(DummyModel):
         # Single "macro" step: piecewise-constant E over [0, dt]
         res = qt.mesolve(H, self.rho, tlist=[0.0, self.dt], c_ops=self.c_ops, e_ops=[])
         self.rho = res.states[-1]
+
+    # -------------- one FDTD step under E-field --------------
 
     def propagate(self, effective_efield_vec):
         """
