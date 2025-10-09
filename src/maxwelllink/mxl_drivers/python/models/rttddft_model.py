@@ -8,6 +8,10 @@ try:
 except:
     from dummy_model import DummyModel
 
+try: 
+    import psi4 
+except ImportError:
+    raise ImportError("Psi4 is required for the RTEhrenfestModel but is not installed.")
 
 class RTTDDFTModel(DummyModel):
     """
@@ -20,7 +24,7 @@ class RTTDDFTModel(DummyModel):
 
     >>> model = RTTDDFTModel(
     ...     engine="psi4",
-    ...     molecule_xyz="../tests/data/hcn.xyz",
+    ...     molecule_xyz="../../../../../tests/data/hcn.xyz",
     ...     functional="SCF",
     ...     basis="sto-3g",
     ...     dt_rttddft_au=0.04,
@@ -32,8 +36,8 @@ class RTTDDFTModel(DummyModel):
     >>> model.initialize(dt_new=0.12, molecule_id=0)
     Initial SCF energy: -91.6751251525 Eh
     >>> model._get_lr_tddft_spectrum(states=5, tda=False)
-    Energy (eV): [ 7.395641  8.558096  8.558096 10.766481 10.76651 ]
-    Oscillator strengths: [0.       0.       0.       0.047901 0.047901]
+    Energy (eV): [ 7.39216   8.554808  8.554808 10.736077 10.736077]
+    Oscillator strengths: [0.       0.       0.       0.048238 0.048238]
     >>> model._propagate_full_rt_tddft(nsteps=10)
     Step   30 Time 1.200000  Etot = -91.6751251490 Eh  ΔE = 0.0000000036 Eh,  μx = 0.000024 a.u.,  μy = 0.000024 a.u.,  μz = 0.965180 a.u.
     """
@@ -53,6 +57,9 @@ class RTTDDFTModel(DummyModel):
         restart: bool = False,
         verbose: bool = False,
         remove_permanent_dipole: bool = False,
+        dft_grid_name: str = "SG0",
+        dft_radial_points: int = -1,
+        dft_spherical_points: int = -1,
     ):
         """
         Initialize the necessary parameters for the RT-TDDFT quantum dynamics model.
@@ -75,6 +82,9 @@ class RTTDDFTModel(DummyModel):
         When restarting, the driver will ignore the initial delta-kick perturbation even if it is set to a non-zero value.
         + **`verbose`** (bool): Whether to print verbose output. Default is False.
         + **`remove_permanent_dipole`** (bool): Whether to remove the effect of permanent dipole moments in the light-matter coupling term. Default is False.
+        + **`dft_grid_name`** (str): Name of the DFT grid to use in Psi4, e.g. "SG0", "SG1". Default is "" (Psi4 default). Using "SG0" can speed up DFT calculations significantly.
+        + **`dft_radial_points`** (int): Number of radial points in the DFT grid. Default is -1 (Psi4 default).
+        + **`dft_spherical_points`** (int): Number of spherical points in the DFT grid. Default is -1 (Psi4 default).
         """
         super().__init__(verbose, checkpoint, restart)
 
@@ -108,7 +118,7 @@ class RTTDDFTModel(DummyModel):
             self.delta_kick_vec[1] = 1.0
         if "z" in self.delta_kick_direction:
             self.delta_kick_vec[2] = 1.0
-        if self.delta_kick_au != 0.0:
+        if self.delta_kick_au != 0.0 and self.verbose:
             print(
                 f"Initial delta-kick perturbation will be applied with strength {self.delta_kick_au} a.u. along direction(s) {self.delta_kick_direction}."
             )
@@ -129,6 +139,11 @@ class RTTDDFTModel(DummyModel):
         self.dipoles = []
         self.energies = []
         self.times = []
+
+        # extra DFT grid settings
+        self.dft_grid_name = str(dft_grid_name)
+        self.dft_radial_points = int(dft_radial_points)
+        self.dft_spherical_points = int(dft_spherical_points)
 
     # -------------- heavy-load initialization (at INIT) --------------
 
@@ -179,13 +194,6 @@ class RTTDDFTModel(DummyModel):
         Initialize Psi4 and set up the molecule, basis set, and functional.
         This method is called during the first propagation step after receiving the molecule ID.
         """
-        try:
-            import psi4
-        except ImportError as e:
-            raise ImportError(
-                "RTTDDFTModel with engine='psi4' requires Psi4. Install with `conda install conda-forge::psi4`."
-            ) from e
-
         # Set memory and output file for Psi4
         psi4.set_memory(self.memory)
         psi4.core.set_num_threads(self.num_threads)
@@ -226,7 +234,7 @@ class RTTDDFTModel(DummyModel):
         # set molecule
         self.mol = psi4.geometry(geom_str)
 
-        opts = {
+        self.opts = {
             "basis": self.basis,
             "reference": "uks" if self.mol.multiplicity() != 1 else "rks",
             "scf_type": "out_of_core",
@@ -236,7 +244,14 @@ class RTTDDFTModel(DummyModel):
             "puream": True,
             "save_jk": True,  # for LR-TDDFT calculations
         }
-        psi4.set_options(opts)
+        # ---- optional DFT functional and grid settings ----
+        if self.dft_grid_name != "":
+            self.opts["dft_grid_name"] = self.dft_grid_name
+        if self.dft_radial_points > 0:
+            self.opts["dft_radial_points"] = self.dft_radial_points
+        if self.dft_spherical_points > 0:
+            self.opts["dft_spherical_points"] = self.dft_spherical_points
+        psi4.set_options(self.opts)
 
         # Initial ground-state KS calculation (to get wfn, grid, V_xc machinery, etc.)
         self.E0, wfn = psi4.energy(f"{self.functional}", return_wfn=True)
@@ -261,7 +276,7 @@ class RTTDDFTModel(DummyModel):
         self.is_restricted = (
             hasattr(wfn, "Db")
             and (wfn.Db().shape[0] == wfn.Da().shape[0])
-            and (opts["reference"] == "rks")
+            and (self.opts["reference"] == "rks")
         )
         self.Db = (
             np.asarray(wfn.Db()) if not self.is_restricted else self.Da.copy()
@@ -374,13 +389,6 @@ class RTTDDFTModel(DummyModel):
         + **`Db_np`** (ndarray): Beta density matrix in AO basis.
         + **`restricted`** (bool): Whether the calculation is restricted (RKS) or unrestricted (UKS).
         """
-        try:
-            import psi4
-        except ImportError as e:
-            raise ImportError(
-                "RTTDDFTModel with engine='psi4' requires Psi4. Install with `conda install conda-forge::psi4`."
-            ) from e
-
         nbf = Da_np.shape[0]
         if restricted:
             D = psi4.core.Matrix.from_array(np.real((Da_np + Db_np.T) / 2))  # Da==Db
@@ -753,6 +761,8 @@ class RTTDDFTModel(DummyModel):
                     f.write(f"{p*27.211399} {e}\n")
 
             # print to screen
+            # set numpy print precision
+            np.set_printoptions(precision=6, suppress=True)
             print("Energy (eV):", poles * 27.211399)
             print("Oscillator strengths:", oscillator_strengths)
 

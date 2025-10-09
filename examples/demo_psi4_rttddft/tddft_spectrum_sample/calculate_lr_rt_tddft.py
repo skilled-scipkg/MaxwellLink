@@ -1,8 +1,8 @@
 import maxwelllink as mxl
 
-model = mxl.mxl_drivers.python.models.RTTDDFTModel(
+model = mxl.RTTDDFTModel(
     engine="psi4",
-    molecule_xyz="../../tests/data/hcn.xyz",
+    molecule_xyz="../../../tests/data/hcn.xyz",
     functional="SCF",
     basis="sto-3g",
     dt_rttddft_au=0.04,
@@ -11,6 +11,7 @@ model = mxl.mxl_drivers.python.models.RTTDDFTModel(
     memory="2GB",
     verbose=False,
     remove_permanent_dipole=False,
+    dft_grid_name="SG0"
 )
 
 model.initialize(dt_new=0.12, molecule_id=0)

@@ -22,6 +22,11 @@ __all__ = [
     "launch_driver",
     "terminate_driver",
     "mxl_lammps_main",
+    "RTTDDFTModel",
+    "RTEhrenfestModel",
+    "QuTiPModel",
+    "ASEModel",
+    "TLSModel",
 ]
 
 
@@ -59,4 +64,24 @@ def __getattr__(name):
         from .mxl_drivers.lammps.install import mxl_lammps_main
 
         return mxl_lammps_main
+    if name == "RTTDDFTModel":
+        from .mxl_drivers.python.models.rttddft_model import RTTDDFTModel
+
+        return RTTDDFTModel
+    if name == "RTEhrenfestModel":
+        from .mxl_drivers.python.models.rt_ehrenfest_model import RTEhrenfestModel
+
+        return RTEhrenfestModel
+    if name == "QuTiPModel":
+        from .mxl_drivers.python.models.qutip_model import QuTiPModel
+
+        return QuTiPModel
+    if name == "ASEModel":
+        from .mxl_drivers.python.models.ase_model import ASEModel
+
+        return ASEModel
+    if name == "TLSModel":
+        from .mxl_drivers.python.models.tls_model import TLSModel
+
+        return TLSModel
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
