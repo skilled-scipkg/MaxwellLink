@@ -11,7 +11,7 @@ model = mxl.RTTDDFTModel(
     memory="2GB",
     verbose=False,
     remove_permanent_dipole=False,
-    dft_grid_name="SG0"
+    dft_grid_name="SG0",
 )
 
 model.initialize(dt_new=0.12, molecule_id=0)

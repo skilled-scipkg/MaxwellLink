@@ -18,8 +18,8 @@ def build_model(
 
     This function provides a reference implementation for the `build_model(**kwargs)` function.
 
-    + **`omega`** (float): Transition frequency in atomic units (a.u.). 
-    + **`mu12`** (float): Dipole moment in atomic units (a.u.). 
+    + **`omega`** (float): Transition frequency in atomic units (a.u.).
+    + **`mu12`** (float): Dipole moment in atomic units (a.u.).
     + **`orientation`** (int): Orientation of the dipole moment, can be 0 (x), 1 (y), or 2 (z). Default is 2 (z).
     + **`pe_initial`** (float): Initial population in the excited state. Default is 0.0.
     + **`gamma_relax`** (float): Relaxation rate (a.u.). Default is 0.0.

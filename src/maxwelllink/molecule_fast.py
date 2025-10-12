@@ -1175,7 +1175,6 @@ def update_molecules(
     + **`sources_non_molecule` [ List ]** — Specifies a list of sources that are not part of any molecule.
       Typically any non-molecule sources such as Gaussian sources must be included here.
     """
-    import numpy as _np
     import json as _json
 
     # --- detect MPI (optional) ---
@@ -1211,11 +1210,11 @@ def update_molecules(
     def _bcast_array(arr, n):
         """Broadcast a flat float64 array of length n from master."""
         if not _HAS_MPI:
-            return _np.asarray(arr, dtype=float).reshape(n)
+            return np.asarray(arr, dtype=float).reshape(n)
         if _is_master:
-            buf = _np.asarray(arr, dtype=float).reshape(n)
+            buf = np.asarray(arr, dtype=float).reshape(n)
         else:
-            buf = _np.empty(n, dtype=float)
+            buf = np.empty(n, dtype=float)
         _COMM.Bcast(buf, root=0)
         return buf
 
@@ -1297,7 +1296,7 @@ def update_molecules(
 
         # ============= 4) HUB ROUND-TRIP ON MASTER, WITH RETRY =============
         nmol = len(molecules)
-        amps_flat = _np.zeros(3 * nmol, dtype=float)  # [ax,ay,az] per molecule
+        amps_flat = np.zeros(3 * nmol, dtype=float)  # [ax,ay,az] per molecule
         extras_by_id = {}
 
         had_responses = True
@@ -1322,7 +1321,7 @@ def update_molecules(
             # Pack responses in molecule order (atomic units)
             off = 0
             for mol in molecules:
-                a = _np.asarray(responses[mol.molecule_id]["amp"], dtype=float).reshape(
+                a = np.asarray(responses[mol.molecule_id]["amp"], dtype=float).reshape(
                     3
                 )
                 amps_flat[off : off + 3] = a

@@ -100,16 +100,20 @@ def test_2d_qutip_tls_relaxation_matches_analytical_via_socket(plotting=False):
 
         if mp.am_master():
             # use a user-built model quantum Hamiltonian in the ./build_tls.py file, which supplies a build_model(**kwargs) function
-            # adding a minor relaxation to test the Linblad term 
+            # adding a minor relaxation to test the Linblad term
             # the issue is that when this pytest is run outside this directory, it cannot find the build_tls.py file
             # so we set the path to the current directory explicitly
             current_directory = os.getcwd()
             print("current_directory", current_directory)
             mxl_root = current_directory.split("MaxwellLink")[0] + "MaxwellLink"
             if not os.path.exists(mxl_root):
-                raise FileNotFoundError(f"Cannot find MaxwellLink root directory from {current_directory}")
+                raise FileNotFoundError(
+                    f"Cannot find MaxwellLink root directory from {current_directory}"
+                )
             print("mxl_root", mxl_root)
-            usr_module_path = os.path.join(mxl_root, "tests", "test_qutip", "build_tls.py")
+            usr_module_path = os.path.join(
+                mxl_root, "tests", "test_qutip", "build_tls.py"
+            )
             print("usr_module_path", usr_module_path)
             gamma_relax = 1e-3  # in atomic units
             driver_argv = _resolve_driver_path() + shlex.split(

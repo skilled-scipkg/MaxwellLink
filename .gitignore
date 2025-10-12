@@ -220,3 +220,5 @@ tests/raw_tests/
 
 # under development
 src/maxwelllink/mxl_drivers/python/models/*.npz
+src/maxwelllink/mxl_drivers/python/models/*.txt
+src/maxwelllink/mxl_drivers/python/models/rttddft_df_model.py

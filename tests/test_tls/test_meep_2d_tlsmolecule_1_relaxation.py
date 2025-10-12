@@ -61,9 +61,11 @@ def test_2d_1tls_relaxation_matches_analytical(plotting=False):
         # analytical golden-rule rate in 2D
         gamma = dipole_moment**2 * (frequency) ** 2 / 2.0
         # this form is correct only near ground state
-        population_analytical = population[0] * np.exp(-time * gamma) 
+        population_analytical = population[0] * np.exp(-time * gamma)
         # this form is correct for all times [see https://journals.aps.org/pra/pdf/10.1103/PhysRevA.97.032105 Eq. A13]
-        population_analytical = np.exp(-time * gamma) / (np.exp(-time * gamma) + (1.0 - population[0]) / population[0])
+        population_analytical = np.exp(-time * gamma) / (
+            np.exp(-time * gamma) + (1.0 - population[0]) / population[0]
+        )
 
         std_dev = np.std(population - population_analytical) / population[0]
         max_abs_diff = (

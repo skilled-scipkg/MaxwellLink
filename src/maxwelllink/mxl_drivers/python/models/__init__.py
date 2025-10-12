@@ -8,6 +8,7 @@ __all__ = [
     "TLSModel",
     "QuTiPModel",
     "RTTDDFTModel",
+    "RTEhrenfestModel",
     "ASEModel",
     "__drivers__",
 ]
@@ -31,6 +32,10 @@ def __getattr__(name: str):
         from .rttddft_model import RTTDDFTModel
 
         return RTTDDFTModel
+    if name == "RTEhrenfestModel":
+        from .rt_ehrenfest_model import RTEhrenfestModel
+
+        return RTEhrenfestModel
     if name == "ASEModel":
         from .ase_model import ASEModel
 
@@ -53,7 +58,7 @@ def _load(cls_path: str):
 def _factory(cls_path: str) -> Callable:
     """
     Return a callable that, when invoked, imports the class and constructs it.
-    This matches mxl_driver.py's expectation that __drivers__[name](...) is callable.
+    This matches mxl_driver's expectation that __drivers__[name](...) is callable.
     """
 
     def _ctor(*args, **kwargs):
@@ -69,5 +74,6 @@ __drivers__: Dict[str, Callable] = {
     "tls": _factory(".tls_model:TLSModel"),
     "qutip": _factory(".qutip_model:QuTiPModel"),
     "rttddft": _factory(".rttddft_model:RTTDDFTModel"),
+    "rtehrenfest": _factory(".rt_ehrenfest_model:RTEhrenfestModel"),
     "ase": _factory(".ase_model:ASEModel"),
 }

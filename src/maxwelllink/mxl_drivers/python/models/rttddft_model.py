@@ -8,10 +8,11 @@ try:
 except:
     from dummy_model import DummyModel
 
-try: 
-    import psi4 
+try:
+    import psi4
 except ImportError:
     raise ImportError("Psi4 is required for the RTEhrenfestModel but is not installed.")
+
 
 class RTTDDFTModel(DummyModel):
     """
@@ -450,7 +451,7 @@ class RTTDDFTModel(DummyModel):
 
     # -------------- one FDTD step under E-field --------------
 
-    def propagate(self, effective_efield_vec):
+    def propagate(self, effective_efield_vec, reset_substep_num=None):
         """
         Propagate the quantum molecular dynamics given the effective electric field vector.
 
@@ -473,7 +474,12 @@ class RTTDDFTModel(DummyModel):
             )
 
             # sub-step the RT-TDDFT propagation if needed
-            for step in range(self.ratio_timestep):
+            if reset_substep_num is not None:
+                substep_num = int(reset_substep_num)
+            else:
+                substep_num = self.ratio_timestep
+            # main for loop
+            for step in range(substep_num):
                 if (
                     self.count == 0
                     and (not self.restarted)
@@ -607,7 +613,7 @@ class RTTDDFTModel(DummyModel):
 
         if self.verbose:
             print(
-                f"[molecule ID {self.molecule_id}] Time: {self.t:.4f} a.u., Energy: {self.energies[-1]:.6f} a.u., returning Amp: {amp_vec[2]:.6E}"
+                f"[molecule ID {self.molecule_id}] Time: {self.t:.4f} a.u., Energy: {self.energies[-1]:.6f} a.u., returning dmu_e/dt: {amp_vec[2]:.6E}"
             )
 
         self.step_completed = True

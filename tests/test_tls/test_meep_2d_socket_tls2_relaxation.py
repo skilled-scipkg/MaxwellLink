@@ -152,7 +152,9 @@ def test_2d_2tls_relaxation_matches_analytical_via_socket(plotting=False):
             print("gamma", gamma)
             population_analytical = population[0] * np.exp(-time_meep_units * gamma)
             # this form is correct for all times [see https://journals.aps.org/pra/pdf/10.1103/PhysRevA.97.032105 Eq. A13]
-            population_analytical = np.exp(-time_meep_units * gamma) / (np.exp(-time_meep_units * gamma) + (1.0 - population[0]) / population[0])
+            population_analytical = np.exp(-time_meep_units * gamma) / (
+                np.exp(-time_meep_units * gamma) + (1.0 - population[0]) / population[0]
+            )
 
             std_dev = np.std(population - population_analytical) / population[0]
             max_abs_diff = (

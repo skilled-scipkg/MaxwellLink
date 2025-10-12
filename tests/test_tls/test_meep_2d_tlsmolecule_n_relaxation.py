@@ -65,7 +65,9 @@ def test_2d_ntls_relaxation_matches_analytical(plotting=False):
         gamma = dipole_moment**2 * (frequency) ** 2 / 2.0 * n_tls
         population_analytical = population[0] * np.exp(-time * gamma)
         # this form is correct for all times [see https://journals.aps.org/pra/pdf/10.1103/PhysRevA.97.032105 Eq. A13]
-        population_analytical = np.exp(-time * gamma) / (np.exp(-time * gamma) + (1.0 - population[0]) / population[0])
+        population_analytical = np.exp(-time * gamma) / (
+            np.exp(-time * gamma) + (1.0 - population[0]) / population[0]
+        )
 
         std_dev = np.std(population - population_analytical) / population[0]
         max_abs_diff = (
