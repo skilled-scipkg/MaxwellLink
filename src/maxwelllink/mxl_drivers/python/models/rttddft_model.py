@@ -653,6 +653,8 @@ class RTTDDFTModel(DummyModel):
                     )
                     self.Fa += V_ext
                     self.Fb += V_ext
+                    
+                if self.count == 0 or self.restarted:
                     self.Fa_halfprev = self.Fa.copy()
                     self.Fb_halfprev = self.Fb.copy()
 
