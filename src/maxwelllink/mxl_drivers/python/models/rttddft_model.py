@@ -61,7 +61,7 @@ class RTTDDFTModel(DummyModel):
         dft_grid_name: str = "SG0",
         dft_radial_points: int = -1,
         dft_spherical_points: int = -1,
-        electron_propagation: str = "etrs",
+        electron_propagation: str = "pc",
     ):
         """
         Initialize the necessary parameters for the RT-TDDFT quantum dynamics model.
@@ -87,7 +87,7 @@ class RTTDDFTModel(DummyModel):
         + **`dft_grid_name`** (str): Name of the DFT grid to use in Psi4, e.g. "SG0", "SG1". Default is "" (Psi4 default). Using "SG0" can speed up DFT calculations significantly.
         + **`dft_radial_points`** (int): Number of radial points in the DFT grid. Default is -1 (Psi4 default).
         + **`dft_spherical_points`** (int): Number of spherical points in the DFT grid. Default is -1 (Psi4 default).
-        + **`electron_propagation`** (str): The electron propagation scheme to use. Options are "etrs" (Enforced Time-Reversal Symmetry) or "pc" (Predictor-Corrector). Default is "etrs".
+        + **`electron_propagation`** (str): The electron propagation scheme to use. Options are "etrs" (Enforced Time-Reversal Symmetry) or "pc" (Predictor-Corrector). Default is "pc".
         """
         super().__init__(verbose, checkpoint, restart)
 
