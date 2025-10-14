@@ -3,6 +3,7 @@ import numpy as np
 # from scipy.linalg import expm
 from scipy.linalg import fractional_matrix_power as mat_pow
 import time
+import os
 
 try:
     from .rttddft_model import RTTDDFTModel
@@ -14,7 +15,7 @@ try:
 except ImportError:
     raise ImportError("Psi4 is required for the RTEhrenfestModel but is not installed.")
 
-np.set_printoptions(precision=6, suppress=True)
+np.set_printoptions(precision=12, suppress=True)
 
 
 class RTEhrenfestModel(RTTDDFTModel):
@@ -69,7 +70,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         temperature_K: float = None,
         rng_seed: int = 1234,
         homo_to_lumo: bool = False,
-        partial_charges: list = None
+        partial_charges: list = None,
     ):
         """
         Initialize the necessary parameters for the RT-TDDFT quantum dynamics model.
@@ -219,7 +220,7 @@ class RTEhrenfestModel(RTTDDFTModel):
 
         if self.homo_to_lumo:
             self._prepare_alpha_homo_to_lumo_excited_state()
-            
+
         self.Fk = self.compute_forces(efield_vec=None)
 
         if self.partial_charges is not None:
@@ -243,23 +244,7 @@ class RTEhrenfestModel(RTTDDFTModel):
             self._reset_from_checkpoint(self.molecule_id)
             self.restarted = True
 
-    # ------------ standalone functions for debugging and testing --------------
-    def _molecule_positions_bohr(self):
-        """
-        Return current Cartesian positions (nat,3) in Bohr from psi4.Molecule.
-
-        Returns
-        -------
-        R : (nat,3) ndarray in Bohr
-        """
-        nat = self.mol.natom()
-        R = np.zeros((nat, 3), dtype=float)
-        for a in range(nat):
-            R[a, 0] = self.mol.x(a)
-            R[a, 1] = self.mol.y(a)
-            R[a, 2] = self.mol.z(a)
-        return R
-
+    # ------------ standalone functions for debugging and testing -------------
     def _set_molecule_positions_bohr(self, R):
         """
         Set psi4.Molecule geometry from (nat,3) Bohr array and update Psi4.
@@ -308,6 +293,8 @@ class RTEhrenfestModel(RTTDDFTModel):
 
         + **`R_new`** (ndarray): New Cartesian positions (nat, 3) in Bohr.
         """
+        timer_start = time.time()
+
         # 1. capture P_O in the old basis
         DaO, DbO = self._density_to_orth()
 
@@ -330,6 +317,11 @@ class RTEhrenfestModel(RTTDDFTModel):
             self.Da, self.Db, self.is_restricted, V_ext=V_ext
         )
 
+        timer_end = time.time()
+        elapsed_time = timer_end - timer_start
+        if self.verbose:
+            print(f"Geometry change and Psi4 refresh time: {elapsed_time:.6f} seconds")
+
     def _rebuild_vpot_fast(self):
         """
         Build a fresh V_potential (VBase) tied to the current geometry and basis,
@@ -347,6 +339,7 @@ class RTEhrenfestModel(RTTDDFTModel):
             try:
                 # Newer Psi4:
                 from psi4.driver.dft import build_superfunctional
+
                 sf = build_superfunctional(self.functional, True)
 
             except Exception:
@@ -467,8 +460,10 @@ class RTEhrenfestModel(RTTDDFTModel):
         -------
         forces : (nat, 3) ndarray in Hartree/Bohr
         """
+        timer_start = time.time()
+
         G = np.asarray(psi4.gradient(f"{self.functional}", molecule=self.mol))
-        
+
         # ---- Direct gradient from partial charge (-Z_A * E(t)) ----
         if efield_vec is None:
             efield_vec = np.zeros(3, dtype=float)
@@ -482,8 +477,12 @@ class RTEhrenfestModel(RTTDDFTModel):
         G += g_field_nuc
 
         F = -G
+
+        timer_end = time.time()
+        elapsed_time = timer_end - timer_start
         if self.verbose:
             print("BO forces (Eh/Bohr):\n", F)
+            print(f"BO force computation time: {elapsed_time:.6f} seconds")
         return F
 
     def _compute_ehrenfest_forces_bohr(
@@ -501,6 +500,8 @@ class RTEhrenfestModel(RTTDDFTModel):
         -------
         forces : (nat, 3) ndarray in Hartree/Bohr
         """
+        timer_start = time.time()
+
         nat = self.mol.natom()
         nbf = self.S.shape[0]
 
@@ -645,7 +646,11 @@ class RTEhrenfestModel(RTTDDFTModel):
         # Convert energy gradients to forces
         g = g_1e + g_2e_coul + g_2e_exch + g_s + g_nuc + g_xc + g_field_nuc
         forces = -g
+
+        timer_end = time.time()
+        elapsed_time = timer_end - timer_start
         if self.verbose:
+            """
             print("Force components (Eh/Bohr):")
             print("begin components")
             print("  1e kinetic:\n", g_1e_T)
@@ -658,7 +663,9 @@ class RTEhrenfestModel(RTTDDFTModel):
                 print("  XC:\n", g_xc)
             print("  nuclear-field:\n", g_field_nuc)
             print("end of components\n")
+            """
             print("Total Ehrenfest forces (Eh/Bohr):\n", forces)
+            print(f"Ehrenfest force computation time: {elapsed_time:.6f} seconds")
         return forces
 
     def _prepare_alpha_homo_to_lumo_excited_state(self):
@@ -831,27 +838,13 @@ class RTEhrenfestModel(RTTDDFTModel):
                 R_mid = Rk + Vk_half * tau
 
                 # Move integral geometry only; keep P_O invariant across this change
-                start_time = time.perf_counter()
                 self._rebuild_at_geometry_preserving_PO(
                     R_mid, effective_efield_vec=efield_vec
                 )
-                end_time = time.perf_counter()
-                elapsed_time = end_time - start_time
-                if self.verbose:
-                    print(
-                        f"[debugging] _rebuild_at_geometry_preserving_PO took {elapsed_time:.6f} seconds"
-                    )
 
                 # Now propagate electrons m times with fixed integrals (at R_mid)
-                start_time = time.perf_counter()
                 for _ in range(int(elec_substeps_per_fock)):
                     super().propagate(np.asarray(efield_vec, dtype=float))
-                end_time = time.perf_counter()
-                elapsed_time = end_time - start_time
-                if self.verbose:
-                    print(
-                        f"[debugging] {elec_substeps_per_fock} electronic RT steps took {elapsed_time:.6f} seconds"
-                    )
 
             # ---- (3) drift nuclei to end of step using p_{k+1/2}
             Rk1 = Rk + Vk_half * dtN
@@ -865,24 +858,12 @@ class RTEhrenfestModel(RTTDDFTModel):
 
             # Before evaluating forces at R_{k+1}, move the actual geometry
             # and keep P_O from the last electronic substep.
-            start_time = time.perf_counter()
             self._rebuild_at_geometry_preserving_PO(
                 Rk1, effective_efield_vec=efield_vec
             )
-            end_time = time.perf_counter()
-            elapsed_time = end_time - start_time
-            if self.verbose:
-                print(
-                    f"[debugging] _rebuild_at_geometry_preserving_PO took {elapsed_time:.6f} seconds"
-                )
 
             # ---- (4) compute forces at end geometry and second half-kick (p_{k+1})
-            start_time = time.perf_counter()
             Fk1 = compute_forces(efield_vec=efield_vec)
-            end_time = time.perf_counter()
-            elapsed_time = end_time - start_time
-            if self.verbose:
-                print(f"[debugging] compute_forces took {elapsed_time:.6f} seconds")
 
             Vk1 = Vk_half + 0.5 * (Fk1 / mass_au[:, None]) * dtN
 
@@ -892,12 +873,6 @@ class RTEhrenfestModel(RTTDDFTModel):
                 traj_R.append(Rk.copy())
                 traj_V.append(Vk.copy())
                 traj_t.append(self.t)
-
-            if self.verbose:
-                vrms = np.sqrt((Vk**2).mean())
-                print(
-                    f"[RT-Ehrenfest] k={k:5d}/{n_nuc_steps}  t_e={self.t:.6f} a.u.  |V|_rms={vrms:.3e} a.u."
-                )
 
             # store positions, velocities, forces for analysis
             self.Rk = Rk
@@ -919,7 +894,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         """
         One full electronic step in the Ehrenfest integrator (Li–Tully–Schlegel–Frisch). Nuclear dynamics are propagated
         after several calls of this function.
-        
+
         + **`effective_efield_vec`** (ndarray): Constant external electric field vector (3,) in atomic units.
         """
         Vk = self.Vk
@@ -952,16 +927,9 @@ class RTEhrenfestModel(RTTDDFTModel):
             R_mid = Rk + self.Vk_half * tau
 
             # Move integral geometry only; keep P_O invariant across this change
-            start_time = time.perf_counter()
             self._rebuild_at_geometry_preserving_PO(
                 R_mid, effective_efield_vec=efield_vec
             )
-            end_time = time.perf_counter()
-            elapsed_time = end_time - start_time
-            if self.verbose:
-                print(
-                    f"[debugging] _rebuild_at_geometry_preserving_PO took {elapsed_time:.6f} seconds"
-                )
 
         # Now propagate electrons for one time (at R_mid)
         # FDTD will be called after this function returns, so we need to run multiple RT-TDDFT steps here
@@ -982,24 +950,12 @@ class RTEhrenfestModel(RTTDDFTModel):
 
             # Before evaluating forces at R_{k+1}, move the actual geometry
             # and keep P_O from the last electronic substep.
-            start_time = time.perf_counter()
             self._rebuild_at_geometry_preserving_PO(
                 Rk1, effective_efield_vec=efield_vec
             )
-            end_time = time.perf_counter()
-            elapsed_time = end_time - start_time
-            if self.verbose:
-                print(
-                    f"[debugging] _rebuild_at_geometry_preserving_PO took {elapsed_time:.6f} seconds"
-                )
 
             # ---- (4) compute forces at end geometry and second half-kick (p_{k+1})
-            start_time = time.perf_counter()
             Fk1 = self.compute_forces(efield_vec=efield_vec)
-            end_time = time.perf_counter()
-            elapsed_time = end_time - start_time
-            if self.verbose:
-                print(f"[debugging] compute_forces took {elapsed_time:.6f} seconds")
 
             Vk1 = self.Vk_half + 0.5 * (Fk1 / mass_au[:, None]) * dtN
 
@@ -1011,6 +967,7 @@ class RTEhrenfestModel(RTTDDFTModel):
             # clear step counter
             self._step_in_cycle = 0
             self._V_inst = self.Vk
+            self.kinEnuc = 0.5 * np.sum(self.mass_au[:, None] * (self.Vk**2))
 
             if self.verbose:
                 print("[RT-Ehrenfest] one nuclear step done.")
@@ -1025,7 +982,7 @@ class RTEhrenfestModel(RTTDDFTModel):
     def _propagate_nuclear_regime(self, effective_efield_vec):
         """
         One full nuclear step in the Ehrenfest integrator (Li–Tully–Schlegel–Frisch).
-        
+
         + **`effective_efield_vec`** (ndarray): Constant external electric field vector (3,) in atomic units.
         """
         Vk = self.Vk
@@ -1053,27 +1010,13 @@ class RTEhrenfestModel(RTTDDFTModel):
                 R_mid = Rk + Vk_half * tau
 
                 # Move integral geometry only; keep P_O invariant across this change
-                start_time = time.perf_counter()
                 self._rebuild_at_geometry_preserving_PO(
                     R_mid, effective_efield_vec=efield_vec
                 )
-                end_time = time.perf_counter()
-                elapsed_time = end_time - start_time
-                if self.verbose:
-                    print(
-                        f"[debugging] _rebuild_at_geometry_preserving_PO took {elapsed_time:.6f} seconds"
-                    )
 
                 # Now propagate electrons m times with fixed integrals (at R_mid)
-                start_time = time.perf_counter()
                 for _ in range(int(n_elec_per_fock)):
                     super().propagate(efield_vec, reset_substep_num=1)
-                end_time = time.perf_counter()
-                elapsed_time = end_time - start_time
-                if self.verbose:
-                    print(
-                        f"[debugging] {n_elec_per_fock} electronic RT steps took {elapsed_time:.6f} seconds"
-                    )
 
             # ---- (3) drift nuclei to end of step using p_{k+1/2}
             Rk1 = Rk + Vk_half * dtN
@@ -1087,24 +1030,12 @@ class RTEhrenfestModel(RTTDDFTModel):
 
             # Before evaluating forces at R_{k+1}, move the actual geometry
             # and keep P_O from the last electronic substep.
-            start_time = time.perf_counter()
             self._rebuild_at_geometry_preserving_PO(
                 Rk1, effective_efield_vec=efield_vec
             )
-            end_time = time.perf_counter()
-            elapsed_time = end_time - start_time
-            if self.verbose:
-                print(
-                    f"[debugging] _rebuild_at_geometry_preserving_PO took {elapsed_time:.6f} seconds"
-                )
 
             # ---- (4) compute forces at end geometry and second half-kick (p_{k+1})
-            start_time = time.perf_counter()
             Fk1 = self.compute_forces(efield_vec=efield_vec)
-            end_time = time.perf_counter()
-            elapsed_time = end_time - start_time
-            if self.verbose:
-                print(f"[debugging] compute_forces took {elapsed_time:.6f} seconds")
 
             Vk1 = Vk_half + 0.5 * (Fk1 / mass_au[:, None]) * dtN
 
@@ -1114,14 +1045,15 @@ class RTEhrenfestModel(RTTDDFTModel):
             self.Vk = Vk
             self.Fk = Fk
             self._V_inst = self.Vk
+            self.kinEnuc = 0.5 * np.sum(self.mass_au[:, None] * (self.Vk**2))
 
             if self.verbose:
                 print("[RT-Ehrenfest] one nuclear step done.")
                 print("[RT-Ehrenfest] updated molecular geometry:")
                 print(self.Rk)
-            
+
             self.traj_R.append(self.Rk.copy())
-    
+
     # -------------- one FDTD step under E-field --------------
 
     def propagate(self, effective_efield_vec):
@@ -1151,17 +1083,13 @@ class RTEhrenfestModel(RTTDDFTModel):
             self._propagate_electronic_regime(effective_efield_vec)
         elif self.em_coupling_regime == "nuclear":
             self._propagate_nuclear_regime(effective_efield_vec)
-        
+
         # compute total energy (kinetic + electronic + nuclear repulsion)
         E_tot = self.energies[-1] if len(self.energies) > 0 else 0.0
-        E_tot += 0.5 * np.sum(self.mass_au[:, None] * (self.Vk**2))
         self.energies_eh.append(E_tot)
-        dip_e = self.dipoles[-1] if len(self.dipoles) > 0 else np.zeros(3)
-        Z = np.array([self.mol.Z(a) for a in range(self.mol.natom())], dtype=float)
-        dip_n = (Z[:, None] * self.Rk).sum(axis=0)
-        dip = dip_e + dip_n
-        self.dipoles_eh.append(dip)
 
+        dip = self.dipoles[-1] if len(self.dipoles) > 0 else np.zeros(3)
+        self.dipoles_eh.append(dip)
 
     def calc_amp_vector(self):
         """
@@ -1180,7 +1108,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         amp_e = super().calc_amp_vector()
         amp_total = amp_e + amp_n
         return amp_total
-    
+
     # ------------ optional operation / checkpoint --------------
 
     def append_additional_data(self):
@@ -1221,7 +1149,7 @@ class RTEhrenfestModel(RTTDDFTModel):
                 "Rk": self.Rk,
                 "Fk": self.Fk,
                 "_V_inst": self._V_inst,
-                "_step_in_cycle": self._step_in_cycle
+                "_step_in_cycle": self._step_in_cycle,
             },
         )
 
@@ -1267,7 +1195,7 @@ class RTEhrenfestModel(RTTDDFTModel):
             "Rk": self.Rk.copy(),
             "Fk": self.Fk.copy(),
             "_V_inst": self._V_inst.copy(),
-            "_step_in_cycle": self._step_in_cycle
+            "_step_in_cycle": self._step_in_cycle,
         }
         return snapshot
 
@@ -1284,8 +1212,9 @@ class RTEhrenfestModel(RTTDDFTModel):
         self.Vk = snapshot["Vk"]
         self.Rk = snapshot["Rk"]
         self.Fk = snapshot["Fk"]
-        self._V_inst = snapshot["_V_inst"],
+        self._V_inst = (snapshot["_V_inst"],)
         self._step_in_cycle = snapshot["_step_in_cycle"]
+
 
 if __name__ == "__main__":
     """
@@ -1297,22 +1226,22 @@ if __name__ == "__main__":
 
     model = RTEhrenfestModel(
         engine="psi4",
-        molecule_xyz="../../../../../tests/data/hcn.xyz",
-        functional="b3lyp",
+        molecule_xyz="../../../../../tests/data/ohba.xyz",
+        functional="hf",
         basis="sto-3g",
         dt_rttddft_au=0.04,
-        delta_kick_au=1.0e-3,
+        delta_kick_au=0.0e-3,
         memory="2GB",
         verbose=True,
         remove_permanent_dipole=False,
-        n_fock_per_nuc=2,
-        n_elec_per_fock=5,
-        homo_to_lumo=True
+        n_fock_per_nuc=10,
+        n_elec_per_fock=10,
+        homo_to_lumo=True,
     )
-    model.initialize(dt_new=0.2, molecule_id=0)
+    model.initialize(dt_new=4.0, molecule_id=0)
     # model._prepare_alpha_homo_to_lumo_excited_state()
     # model._propagate_rttddft_ehrenfest(n_nuc_steps=2, efield_vec=np.array([0.0, 0.0, 1e-2]), force_type="ehrenfest")
-    for i in range(20):
-        model.propagate(effective_efield_vec=np.array([0.0, 0.0, 1e-2]))
+    for i in range(1):
+        model.propagate(effective_efield_vec=np.array([0.0, 0.0, 0.0]))
     # save molecular geometries
     np.savez(f"ohba_geom_{i}.npz", geometry=model.traj_R)

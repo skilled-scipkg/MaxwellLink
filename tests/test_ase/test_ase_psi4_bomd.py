@@ -12,8 +12,8 @@ print("current_directory", current_directory)
 mxl_root = current_directory.split("MaxwellLink")[0] + "MaxwellLink"
 if not os.path.exists(mxl_root):
     raise FileNotFoundError(
-            f"Cannot find MaxwellLink root directory from {current_directory}"
-        )
+        f"Cannot find MaxwellLink root directory from {current_directory}"
+    )
 print("mxl_root", mxl_root)
 xyz_path = os.path.join(mxl_root, "tests", "data", "hcn.xyz")
 print("xyz_path", xyz_path)
@@ -22,7 +22,7 @@ print("xyz_path", xyz_path)
 @pytest.mark.slow
 def test_rteh_ase_bomd_comparison(n_run=10, plotting=False):
     """
-    This test compares the BOMD results from PSI4 in our RT-Ehrenfest implementation 
+    This test compares the BOMD results from PSI4 in our RT-Ehrenfest implementation
     and ASE (PSI4) BOMD interface for cross-validation between the two implementations.
     A constant electric field is applied to drive the dynamics (because MaxwellLink
     is designed to work with electrodynamics simulations).
@@ -48,7 +48,6 @@ def test_rteh_ase_bomd_comparison(n_run=10, plotting=False):
         homo_to_lumo=False,
         force_type="bo",
         partial_charges=[1.0, -1.0, 0.0],
-
     )
     model_rt.initialize(dt_new=10.0, molecule_id=0)
     for i in range(n_run):
@@ -59,7 +58,7 @@ def test_rteh_ase_bomd_comparison(n_run=10, plotting=False):
         atoms=xyz_path,
         calculator="psi4",
         calc_kwargs="method=b3lyp, basis=sto-3g",
-        charges="[1.0 -1.0 0.0]"
+        charges="[1.0 -1.0 0.0]",
     )
     model_ase.initialize(dt_new=10.0, molecule_id=0)
     angstrom2bohr = 1.8897259886
@@ -72,12 +71,13 @@ def test_rteh_ase_bomd_comparison(n_run=10, plotting=False):
         traj_R_ase.append(positions * angstrom2bohr)
 
     # plot dynamics
-    bond_rt = [np.sum((R[0, :] - R[1, :])**2)**0.5 for R in traj_R_rt]
-    bond_ase = [np.sum((R[0, :] - R[1, :])**2)**0.5 for R in traj_R_ase]
+    bond_rt = [np.sum((R[0, :] - R[1, :]) ** 2) ** 0.5 for R in traj_R_rt]
+    bond_ase = [np.sum((R[0, :] - R[1, :]) ** 2) ** 0.5 for R in traj_R_ase]
     assert np.allclose(bond_rt, bond_ase, atol=1e-5)
 
     if plotting:
         import matplotlib.pyplot as plt
+
         plt.figure(figsize=(10, 5))
         plt.plot(bond_rt, label="RT-Ehrenfest (PSI4)")
         plt.plot(bond_ase, label="ASE (PSI4)")
@@ -91,8 +91,8 @@ def test_rteh_ase_bomd_comparison(n_run=10, plotting=False):
 @pytest.mark.slow
 def test_rteh_rtdynamics_ase_bomd_comparison(n_run=10, plotting=False):
     """
-    This test compares the MD results from PSI4 in our RT-Ehrenfest implementation 
-    (using Ehrenfest gradients) and ASE (PSI4) BOMD interface for cross-validation between 
+    This test compares the MD results from PSI4 in our RT-Ehrenfest implementation
+    (using Ehrenfest gradients) and ASE (PSI4) BOMD interface for cross-validation between
     the two implementations.
 
     Pass criteria:
@@ -125,7 +125,7 @@ def test_rteh_rtdynamics_ase_bomd_comparison(n_run=10, plotting=False):
         atoms=xyz_path,
         calculator="psi4",
         calc_kwargs="method=b3lyp, basis=sto-3g",
-        charges="[0.0 0.0 0.0]"
+        charges="[0.0 0.0 0.0]",
     )
     model_ase.initialize(dt_new=1.0, molecule_id=0)
     angstrom2bohr = 1.8897259886
@@ -138,12 +138,13 @@ def test_rteh_rtdynamics_ase_bomd_comparison(n_run=10, plotting=False):
         traj_R_ase.append(positions * angstrom2bohr)
 
     # plot dynamics
-    bond_rt = [np.sum((R[0, :] - R[1, :])**2)**0.5 for R in traj_R_rt]
-    bond_ase = [np.sum((R[0, :] - R[1, :])**2)**0.5 for R in traj_R_ase]
+    bond_rt = [np.sum((R[0, :] - R[1, :]) ** 2) ** 0.5 for R in traj_R_rt]
+    bond_ase = [np.sum((R[0, :] - R[1, :]) ** 2) ** 0.5 for R in traj_R_ase]
     assert np.allclose(bond_rt, bond_ase, atol=1e-5)
 
     if plotting:
         import matplotlib.pyplot as plt
+
         plt.figure(figsize=(10, 5))
         plt.plot(bond_rt, label="RT-Ehrenfest (PSI4)")
         plt.plot(bond_ase, label="ASE (PSI4)")
@@ -152,6 +153,7 @@ def test_rteh_rtdynamics_ase_bomd_comparison(n_run=10, plotting=False):
         plt.legend()
         plt.title("BOMD Dynamics Comparison")
         plt.show()
+
 
 if __name__ == "__main__":
     test_rteh_rtdynamics_ase_bomd_comparison(n_run=30, plotting=True)

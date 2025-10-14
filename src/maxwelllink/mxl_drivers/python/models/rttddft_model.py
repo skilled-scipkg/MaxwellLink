@@ -264,6 +264,8 @@ class RTTDDFTModel(DummyModel):
         self.S = np.asarray(wfn.S())
         self.H = np.asarray(wfn.H())  # core Hamiltonian
         self.Enuc = self.mol.nuclear_repulsion_energy()
+        # kinetic energy of classical nuclei, which will be assigned and updated in the Ehrenfest model
+        self.kinEnuc = 0.0
 
         # Symmetric orthogonalizer
         self.X = mat_pow(self.S, -0.5)
@@ -406,6 +408,22 @@ class RTTDDFTModel(DummyModel):
             self.Vpot.compute_V([Va_m, Vb_m])
             return np.asarray(Va_m), np.asarray(Vb_m)
 
+    def _molecule_positions_bohr(self):
+        """
+        Return current Cartesian positions (nat,3) in Bohr from psi4.Molecule.
+
+        Returns
+        -------
+        R : (nat,3) ndarray in Bohr
+        """
+        nat = self.mol.natom()
+        R = np.zeros((nat, 3), dtype=float)
+        for a in range(nat):
+            R[a, 0] = self.mol.x(a)
+            R[a, 1] = self.mol.y(a)
+            R[a, 2] = self.mol.z(a)
+        return R
+
     def _energy_dipole_analysis_psi4(self, Da_np, Db_np):
         """
         Compute total energy and dipole moment from current densities.
@@ -440,11 +458,22 @@ class RTTDDFTModel(DummyModel):
                         + np.einsum("pq,pq->", Kb, self.Db)
                     ).real
                 )
-        Etot = Eone + Ecoul + ExHF + Exc + self.Enuc
+        Etot = Eone + Ecoul + ExHF + Exc + self.Enuc + self.kinEnuc
 
+        # electronic contribution to dipole moment
         mu_x = -np.trace(Dtot @ self.mu_ints[0]).real
         mu_y = -np.trace(Dtot @ self.mu_ints[1]).real
         mu_z = -np.trace(Dtot @ self.mu_ints[2]).real
+
+        # nuclear contribution to dipole moment
+        R = self._molecule_positions_bohr()
+        Z = np.array([self.mol.Z(a) for a in range(self.mol.natom())], dtype=float)
+        dip_n = (Z[:, None] * R).sum(axis=0)
+
+        mu_x += dip_n[0]
+        mu_y += dip_n[1]
+        mu_z += dip_n[2]
+
         dip_vec = np.array([mu_x, mu_y, mu_z])
 
         return Etot, dip_vec
