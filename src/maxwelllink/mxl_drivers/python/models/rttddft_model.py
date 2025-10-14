@@ -196,7 +196,7 @@ class RTTDDFTModel(DummyModel):
             self._reset_from_checkpoint(self.molecule_id)
             self.restarted = True
 
-    # -------------- Psi4 specific helper functions --------------
+    # ------------ internal functions -------------
 
     def _init_psi4(self):
         """
@@ -653,7 +653,7 @@ class RTTDDFTModel(DummyModel):
                     )
                     self.Fa += V_ext
                     self.Fb += V_ext
-                    
+
                 if self.count == 0 or self.restarted:
                     self.Fa_halfprev = self.Fa.copy()
                     self.Fb_halfprev = self.Fb.copy()

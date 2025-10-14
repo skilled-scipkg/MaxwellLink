@@ -103,7 +103,7 @@ class TLSModel(DummyModel):
             self._reset_from_checkpoint(self.molecule_id)
             self.restarted = True
 
-    # -------------- helper function for TLS --------------
+    # ------------ internal functions -------------
 
     def _reset_tls_population(self, excited_population: float = 0.0):
         """

@@ -247,7 +247,8 @@ class RTEhrenfestModel(RTTDDFTModel):
             self._reset_from_checkpoint(self.molecule_id)
             self.restarted = True
 
-    # ------------ standalone functions for debugging and testing -------------
+    # ------------ internal functions -------------
+
     def _set_molecule_positions_bohr(self, R):
         """
         Set psi4.Molecule geometry from (nat,3) Bohr array and update Psi4.
@@ -1117,6 +1118,21 @@ class RTEhrenfestModel(RTTDDFTModel):
 
             self.traj_R.append(self.Rk.copy())
 
+    def _append_xyz_to_file(self, filename="rt_ehrenfest_traj.xyz"):
+        """
+        Append the current molecular geometry to an XYZ file.
+
+        + **`filename`** (str): The name of the XYZ file to append to (default: "rt_ehrenfest_traj.xyz").
+        """
+        nat = self.mol.natom()
+        with open(filename, "a") as f:
+            f.write(f"{nat}\n")
+            f.write(f"t = {self.t:.6f} au\n")
+            for a in range(nat):
+                sym = self.mol.symbol(a)
+                x, y, z = self.Rk[a] * 0.52917721092  # convert Bohr to Angstrom
+                f.write(f"{sym:2} {x:15.8f} {y:15.8f} {z:15.8f}\n")
+
     # -------------- one FDTD step under E-field --------------
 
     def propagate(self, effective_efield_vec):
@@ -1289,7 +1305,7 @@ if __name__ == "__main__":
 
     model = RTEhrenfestModel(
         engine="psi4",
-        molecule_xyz="../../../../../tests/data/ohba.xyz",
+        molecule_xyz="../../../../../tests/data/hcn.xyz",
         functional="hf",
         basis="sto-3g",
         dt_rttddft_au=0.04,
@@ -1304,7 +1320,12 @@ if __name__ == "__main__":
     model.initialize(dt_new=4.0, molecule_id=0)
     # model._prepare_alpha_homo_to_lumo_excited_state()
     # model._propagate_rttddft_ehrenfest(n_nuc_steps=2, efield_vec=np.array([0.0, 0.0, 1e-2]), force_type="ehrenfest")
-    for i in range(1):
+    # remove file filename="rt_ehrenfest_traj.xyz" to avoid overwriting
+    if os.path.exists("rt_ehrenfest_traj.xyz"):
+        os.remove("rt_ehrenfest_traj.xyz")
+
+    for i in range(2):
         model.propagate(effective_efield_vec=np.array([0.0, 0.0, 0.0]))
+        model._append_xyz_to_file(filename="rt_ehrenfest_traj.xyz")
     # save molecular geometries
-    np.savez(f"ohba_geom_{i}.npz", geometry=model.traj_R)
+    # np.savez(f"ohba_geom_{i}.npz", geometry=model.traj_R)

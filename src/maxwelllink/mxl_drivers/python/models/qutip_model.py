@@ -387,7 +387,7 @@ class QuTiPModel(DummyModel):
                     for aj, K_j in Kj.items():
                         print(f"  K_{aj}:\n{K_j}")
 
-    # ----------------- helper functions for QuTiP evolution -----------------
+    # ------------ internal functions -------------
 
     def _effective_unitary_step(self, E_vec):
         """
