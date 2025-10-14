@@ -241,6 +241,8 @@ class RTEhrenfestModel(RTTDDFTModel):
         self.energies_eh = []
         self.dipoles_eh = []
 
+        self._count_append_xyz_to_file = 0
+
         # consider whether to restart from a checkpoint. We do this here because this function
         # is called in the driver during the INIT stage of the socket communication.
         if self.restart and self.checkpoint:
@@ -1124,6 +1126,10 @@ class RTEhrenfestModel(RTTDDFTModel):
 
         + **`filename`** (str): The name of the XYZ file to append to (default: "rt_ehrenfest_traj.xyz").
         """
+        # remove existing file if this is the first time appending
+        if self._count_append_xyz_to_file == 0 and os.path.exists(filename):
+            os.remove(filename)
+
         nat = self.mol.natom()
         with open(filename, "a") as f:
             f.write(f"{nat}\n")
@@ -1132,6 +1138,7 @@ class RTEhrenfestModel(RTTDDFTModel):
                 sym = self.mol.symbol(a)
                 x, y, z = self.Rk[a] * 0.52917721092  # convert Bohr to Angstrom
                 f.write(f"{sym:2} {x:15.8f} {y:15.8f} {z:15.8f}\n")
+        self._count_append_xyz_to_file += 1
 
     # -------------- one FDTD step under E-field --------------
 
@@ -1320,10 +1327,6 @@ if __name__ == "__main__":
     model.initialize(dt_new=4.0, molecule_id=0)
     # model._prepare_alpha_homo_to_lumo_excited_state()
     # model._propagate_rttddft_ehrenfest(n_nuc_steps=2, efield_vec=np.array([0.0, 0.0, 1e-2]), force_type="ehrenfest")
-    # remove file filename="rt_ehrenfest_traj.xyz" to avoid overwriting
-    if os.path.exists("rt_ehrenfest_traj.xyz"):
-        os.remove("rt_ehrenfest_traj.xyz")
-
     for i in range(2):
         model.propagate(effective_efield_vec=np.array([0.0, 0.0, 0.0]))
         model._append_xyz_to_file(filename="rt_ehrenfest_traj.xyz")
