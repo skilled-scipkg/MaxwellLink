@@ -45,6 +45,7 @@ class RTEhrenfestModel(RTTDDFTModel):
 
     def __init__(
         self,
+        # ---- general RT-TDDFT parameters ----
         engine: str = "psi4",
         molecule_xyz: str = "",
         functional: str = "SCF",
@@ -61,6 +62,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         dft_grid_name: str = "SG0",
         dft_radial_points: int = -1,
         dft_spherical_points: int = -1,
+        electron_propagation: str = "etrs",
         # ---- control of Ehrenfest dynamics ----
         force_type: str = "ehrenfest",
         n_fock_per_nuc: int = 10,
@@ -123,6 +125,7 @@ class RTEhrenfestModel(RTTDDFTModel):
             dft_grid_name=dft_grid_name,
             dft_radial_points=dft_radial_points,
             dft_spherical_points=dft_spherical_points,
+            electron_propagation=electron_propagation,
         )
 
         # --- Ehrenfest-specific parameters ---
@@ -255,7 +258,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         self.mol.set_geometry(geom)
         self.mol.update_geometry()
 
-    def _density_to_orth(self):
+    def _density_to_orth(self, Da, Db):
         """
         Return spin densities in the orthonormal AO basis: P_O = S^{1/2} P' S^{1/2}.
 
@@ -266,12 +269,33 @@ class RTEhrenfestModel(RTTDDFTModel):
         DbO : (nbf,nbf) ndarray
             Beta density in orthonormal AO basis.
         """
-        DaO = self.U @ self.Da @ self.U.T
+        DaO = self.U @ Da @ self.U.T
         if self.is_restricted:
             DbO = DaO.copy()
         else:
-            DbO = self.U @ self.Db @ self.U.T
+            DbO = self.U @ Db @ self.U.T
         return DaO, DbO
+
+    def _fock_to_orth(self, Fa, Fb):
+        """
+        Return spin Fock matrices in the orthonormal AO basis: F_O = S^{1/2} F S^{1/2}.
+
+        + **`Fa`** (ndarray): Alpha Fock in AO basis.
+        + **`Fb`** (ndarray): Beta Fock in AO basis.
+
+        Returns
+        -------
+        FaO : (nbf,nbf) ndarray
+            Alpha Fock in orthonormal AO basis.
+        FbO : (nbf,nbf) ndarray
+            Beta Fock in orthonormal AO basis.
+        """
+        FaO = self.X.T @ Fa @ self.X
+        if self.is_restricted:
+            FbO = FaO.copy()
+        else:
+            FbO = self.X.T @ Fb @ self.X
+        return FaO, FbO
 
     def _density_from_orth(self, DaO, DbO):
         """
@@ -279,12 +303,41 @@ class RTEhrenfestModel(RTTDDFTModel):
 
         + **`DaO`** (ndarray): Alpha density in orthonormal AO basis.
         + **`DbO`** (ndarray): Beta density in orthonormal AO basis.
+
+        Returns
+        -------
+        Da : (nbf,nbf) ndarray
+            Alpha density in AO basis.
+        Db : (nbf,nbf) ndarray
+            Beta density in AO basis.
         """
-        self.Da = self.X @ DaO @ self.X.T
+        Da = self.X @ DaO @ self.X.T
         if self.is_restricted:
-            self.Db = self.Da.copy()
+            Db = self.Da.copy()
         else:
-            self.Db = self.X @ DbO @ self.X.T
+            Db = self.X @ DbO @ self.X.T
+        return Da, Db
+
+    def _fock_from_orth(self, FaO, FbO):
+        """
+        Set AO Fock matrices from orthonormal Fock using current X = S^{-1/2}.
+
+        + **`FaO`** (ndarray): Alpha Fock in orthonormal AO basis.
+        + **`FbO`** (ndarray): Beta Fock in orthonormal AO basis.
+
+        Returns
+        -------
+        Fa : (nbf,nbf) ndarray
+            Alpha Fock in AO basis.
+        Fb : (nbf,nbf) ndarray
+            Beta Fock in AO basis.
+        """
+        Fa = self.U @ FaO @ self.U.T
+        if self.is_restricted:
+            Fb = Fa.copy()
+        else:
+            Fb = self.U @ FbO @ self.U.T
+        return Fa, Fb
 
     def _rebuild_at_geometry_preserving_PO(self, R_new, effective_efield_vec=None):
         """
@@ -296,16 +349,25 @@ class RTEhrenfestModel(RTTDDFTModel):
         timer_start = time.time()
 
         # 1. capture P_O in the old basis
-        DaO, DbO = self._density_to_orth()
+        DaO, DbO = self._density_to_orth(self.Da, self.Db)
+        FaO, FbO = self._fock_to_orth(self.Fa, self.Fb)
+        FaO_halfprev, FbO_halfprev = self._fock_to_orth(
+            self.Fa_halfprev, self.Fb_halfprev
+        )
 
         # 2. move nuclei and refresh integrals/grid machinery
         self._set_molecule_positions_bohr(R_new)
         self._refresh_psi4_internals_after_geom_change()  # updates S, X, U, H, ERI, Vpot,...
 
         # 3. map P_O -> new AO densities with the new X = S^{-1/2}
-        self._density_from_orth(DaO, DbO)
+        self.Da, self.Db = self._density_from_orth(DaO, DbO)
+        self.Fa, self.Fb = self._fock_from_orth(FaO, FbO)
+        self.Fa_halfprev, self.Fb_halfprev = self._fock_from_orth(
+            FaO_halfprev, FbO_halfprev
+        )
 
         # 4. rebuild KS/Fock at the new geometry with the mapped densities
+        """
         V_ext = None
         if effective_efield_vec is not None:
             V_ext = (
@@ -316,6 +378,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         self.Fa, self.Fb = self._build_KS_psi4(
             self.Da, self.Db, self.is_restricted, V_ext=V_ext
         )
+        """
 
         timer_end = time.time()
         elapsed_time = timer_end - timer_start

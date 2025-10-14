@@ -61,6 +61,7 @@ class RTTDDFTModel(DummyModel):
         dft_grid_name: str = "SG0",
         dft_radial_points: int = -1,
         dft_spherical_points: int = -1,
+        electron_propagation: str = "etrs",
     ):
         """
         Initialize the necessary parameters for the RT-TDDFT quantum dynamics model.
@@ -86,6 +87,7 @@ class RTTDDFTModel(DummyModel):
         + **`dft_grid_name`** (str): Name of the DFT grid to use in Psi4, e.g. "SG0", "SG1". Default is "" (Psi4 default). Using "SG0" can speed up DFT calculations significantly.
         + **`dft_radial_points`** (int): Number of radial points in the DFT grid. Default is -1 (Psi4 default).
         + **`dft_spherical_points`** (int): Number of spherical points in the DFT grid. Default is -1 (Psi4 default).
+        + **`electron_propagation`** (str): The electron propagation scheme to use. Options are "etrs" (Enforced Time-Reversal Symmetry) or "pc" (Predictor-Corrector). Default is "etrs".
         """
         super().__init__(verbose, checkpoint, restart)
 
@@ -145,6 +147,12 @@ class RTTDDFTModel(DummyModel):
         self.dft_grid_name = str(dft_grid_name)
         self.dft_radial_points = int(dft_radial_points)
         self.dft_spherical_points = int(dft_spherical_points)
+
+        self.electron_propagation = electron_propagation.lower()
+        if self.electron_propagation not in ["etrs", "pc"]:
+            raise ValueError(
+                "Invalid electron_propagation. Must be one of 'etrs' (Enforced Time-Reversal Symmetry) or 'pc' (Predictor-Corrector)."
+            )
 
     # -------------- heavy-load initialization (at INIT) --------------
 
@@ -287,6 +295,10 @@ class RTTDDFTModel(DummyModel):
 
         self.Fa = np.asarray(wfn.Fa())
         self.Fb = np.asarray(wfn.Fb()) if not self.is_restricted else self.Fa.copy()
+
+        # for predictor-corrector scheme
+        self.Fa_halfprev = self.Fa.copy()
+        self.Fb_halfprev = self.Fb.copy()
 
         # AO dipole integrals (x, y, z)
         self.mu_ints = [np.asarray(m) for m in mints.ao_dipole()]
@@ -478,11 +490,10 @@ class RTTDDFTModel(DummyModel):
 
         return Etot, dip_vec
 
-    # -------------- one FDTD step under E-field --------------
-
-    def propagate(self, effective_efield_vec, reset_substep_num=None):
+    def _propagate_etrs(self, effective_efield_vec, reset_substep_num=None):
         """
-        Propagate the quantum molecular dynamics given the effective electric field vector.
+        Propagate the quantum molecular dynamics given the effective electric field vector using
+        the Enforced Time-Reversal Symmetry (ETRS) scheme (https://octopus-code.org/documentation/14/manual/calculations/time-dependent/).
 
         + **`effective_efield_vec`**: Effective electric field vector in the form [Ex, Ey, Ez].
         """
@@ -519,16 +530,13 @@ class RTTDDFTModel(DummyModel):
                         print(
                             f"[molecule {self.molecule_id}] Applying initial delta-kick perturbation with strength {self.delta_kick_au} a.u. along direction(s) {self.delta_kick_direction}."
                         )
-                    self.Fa += self.delta_kick_au * (
+                    V_ext += self.delta_kick_au * (
                         self.mu_ints[0] * self.delta_kick_vec[0]
                         + self.mu_ints[1] * self.delta_kick_vec[1]
                         + self.mu_ints[2] * self.delta_kick_vec[2]
                     )
-                    self.Fb += self.delta_kick_au * (
-                        self.mu_ints[0] * self.delta_kick_vec[0]
-                        + self.mu_ints[1] * self.delta_kick_vec[1]
-                        + self.mu_ints[2] * self.delta_kick_vec[2]
-                    )
+                    self.Fa += V_ext
+                    self.Fb += V_ext
 
                 # Orthonormal-basis densities & KS matrices
                 DaO = self.U @ self.Da @ self.U.T
@@ -597,6 +605,184 @@ class RTTDDFTModel(DummyModel):
 
                 self.count += 1
                 self.t += self.dt_rttddft_au
+
+    def _propagate_pc(self, effective_efield_vec, reset_substep_num=None):
+        """
+        Propagate the quantum molecular dynamics given the effective electric field vector using
+        the Predictor-Corrector (PC) scheme (https://pubs.acs.org/doi/10.1021/acs.jctc.0c00053).
+
+        + **`effective_efield_vec`**: Effective electric field vector in the form [Ex, Ey, Ez].
+        """
+        self.step_started = True
+        self.step_completed = False
+
+        if self.verbose:
+            print(
+                f"[molecule ID {self.molecule_id}] Time: {self.t:.4f} a.u., receiving effective_efield_vec: {effective_efield_vec[2]:.6E}"
+            )
+
+        if self.engine == "psi4":
+            # calculate the effective dipole matrix due to the coupling with the external E-field; minus sign for e = -1
+            V_ext = (
+                -self.mu_ints[0] * effective_efield_vec[0]
+                - self.mu_ints[1] * effective_efield_vec[1]
+                - self.mu_ints[2] * effective_efield_vec[2]
+            )
+
+            # sub-step the RT-TDDFT propagation if needed
+            if reset_substep_num is not None:
+                substep_num = int(reset_substep_num)
+            else:
+                substep_num = self.ratio_timestep
+            # main for loop
+            for step in range(substep_num):
+                if (
+                    self.count == 0
+                    and (not self.restarted)
+                    and (self.delta_kick_au != 0.0)
+                ):
+                    # apply the initial delta-kick perturbation at t=0 to initiate the dynamics
+                    if self.verbose:
+                        print(
+                            f"[molecule {self.molecule_id}] Applying initial delta-kick perturbation with strength {self.delta_kick_au} a.u. along direction(s) {self.delta_kick_direction}."
+                        )
+                    V_ext += self.delta_kick_au * (
+                        self.mu_ints[0] * self.delta_kick_vec[0]
+                        + self.mu_ints[1] * self.delta_kick_vec[1]
+                        + self.mu_ints[2] * self.delta_kick_vec[2]
+                    )
+                    self.Fa += V_ext
+                    self.Fb += V_ext
+                    self.Fa_halfprev = self.Fa.copy()
+                    self.Fb_halfprev = self.Fb.copy()
+
+                # Orthonormal-basis densities & KS matrices
+                DaO = self.U @ self.Da @ self.U.T
+                FaO = self.X.T @ self.Fa @ self.X
+                FaO_halfprev = self.X.T @ self.Fa_halfprev @ self.X
+                if self.is_restricted:
+                    # RKS: propagate alpha only, beta = alpha
+                    FaO_halffuture = 2.0 * FaO - FaO_halfprev
+                    FaO_test = FaO_halffuture.copy()
+                    counter = 1
+                    while True:
+                        Uprop = expm((-1j * self.dt_rttddft_au) * FaO_halffuture)
+                        DaO_future = Uprop @ DaO @ Uprop.conj().T
+                        Da_future = self.X @ DaO_future @ self.X.T
+                        Db_future = Da_future.copy()
+                        Fa_future, Fb_future = self._build_KS_psi4(
+                            Da_future, Db_future, self.is_restricted, V_ext=V_ext
+                        )
+                        FaO_future = self.X.T @ Fa_future @ self.X
+                        FaO_halffuture = 0.5 * (FaO + FaO_future)
+                        if counter > 1:
+                            FaO_diff = FaO_future - FaO_test
+                            if self.verbose:
+                                print(
+                                    f"[molecule {self.molecule_id}]  Predictor-Corrector iteration {counter}, max|ΔF| = {np.max(np.abs(FaO_diff)):.8E}"
+                                )
+                            if np.linalg.norm(FaO_diff) < 1e-6:
+                                break
+                        FaO_test = FaO_future.copy()
+                        counter += 1
+                    # refresh for next step
+                    self.Da = self.X @ DaO_future @ self.X.T
+                    self.Db = self.Da.copy()
+                    self.Fa = Fa_future.copy()
+                    self.Fb = Fb_future.copy()
+                    self.Fa_halfprev = self.U @ FaO_halffuture @ self.U.T
+                    self.Fb_halfprev = self.Fa_halfprev.copy()
+
+                else:
+                    # UKS: propagate alpha and beta separately
+                    DbO = self.U @ self.Db @ self.U.T
+                    FbO = self.X.T @ self.Fb @ self.X
+                    FbO_halfprev = self.X.T @ self.Fb_halfprev @ self.X
+
+                    FaO_halffuture = 2.0 * FaO - FaO_halfprev
+                    FbO_halffuture = 2.0 * FbO - FbO_halfprev
+                    FaO_test = FaO_halffuture.copy()
+                    FbO_test = FbO_halffuture.copy()
+                    counter = 1
+                    while True:
+                        Uprop_alpha = expm((-1j * self.dt_rttddft_au) * FaO_halffuture)
+                        DaO_future = Uprop_alpha @ DaO @ Uprop_alpha.conj().T
+                        Da_future = self.X @ DaO_future @ self.X.T
+
+                        Uprop_beta = expm((-1j * self.dt_rttddft_au) * FbO_halffuture)
+                        DbO_future = Uprop_beta @ DbO @ Uprop_beta.conj().T
+                        Db_future = self.X @ DbO_future @ self.X.T
+
+                        Fa_future, Fb_future = self._build_KS_psi4(
+                            Da_future, Db_future, self.is_restricted, V_ext=V_ext
+                        )
+
+                        FaO_future = self.X.T @ Fa_future @ self.X
+                        FaO_halffuture = 0.5 * (FaO + FaO_future)
+
+                        FbO_future = self.X.T @ Fb_future @ self.X
+                        FbO_halffuture = 0.5 * (FbO + FbO_future)
+
+                        if counter > 1:
+                            FaO_diff = FaO_future - FaO_test
+                            FbO_diff = FbO_future - FbO_test
+                            if self.verbose:
+                                print(
+                                    f"[molecule {self.molecule_id}]  Predictor-Corrector iteration {counter}, max|ΔF| = {np.max(np.abs(FaO_diff)):.8E}"
+                                )
+                            if (
+                                np.linalg.norm(FaO_diff) < 1e-6
+                                and np.linalg.norm(FbO_diff) < 1e-6
+                            ):
+                                break
+                        FaO_test = FaO_future.copy()
+                        FbO_test = FbO_future.copy()
+
+                        counter += 1
+                    # refresh for next step
+                    self.Da = self.X @ DaO_future @ self.X.T
+                    self.Db = self.X @ DbO_future @ self.X.T
+                    self.Fa = Fa_future.copy()
+                    self.Fb = Fb_future.copy()
+                    self.Fa_halfprev = self.U @ FaO_halffuture @ self.U.T
+                    self.Fb_halfprev = self.U @ FbO_halffuture @ self.U.T
+
+                # Energetics and dipole info analysis
+                Etot, dip_vec = self._energy_dipole_analysis_psi4(self.Da, self.Db)
+
+                # Dipole (electronic)
+                self.dipoles.append(dip_vec)
+                self.energies.append(Etot)
+                self.times.append(self.t)
+                if self.verbose:
+                    print(
+                        f"Step {self.count:4d} Time {self.dt_rttddft_au*self.count:.6f}  Etot = {Etot:.10f} Eh  ΔE = {Etot-self.E0:.10f} Eh,  μx = {dip_vec[0]:.6f} a.u.,  μy = {dip_vec[1]:.6f} a.u.,  μz = {dip_vec[2]:.6f} a.u."
+                    )
+
+                self.count += 1
+                self.t += self.dt_rttddft_au
+
+    # -------------- one FDTD step under E-field --------------
+
+    def propagate(self, effective_efield_vec, reset_substep_num=None):
+        """
+        Propagate the quantum molecular dynamics given the effective electric field vector.
+
+        + **`effective_efield_vec`**: Effective electric field vector in the form [Ex, Ey, Ez].
+        + **`reset_substep_num`** (int or None): If provided, reset the number of sub-steps to this value for the current propagation step.
+        """
+        if self.electron_propagation == "etrs":
+            self._propagate_etrs(
+                effective_efield_vec, reset_substep_num=reset_substep_num
+            )
+        elif self.electron_propagation == "pc":
+            self._propagate_pc(
+                effective_efield_vec, reset_substep_num=reset_substep_num
+            )
+        else:
+            raise ValueError(
+                f"Unknown electron_propagation method: {self.electron_propagation}"
+            )
 
     def calc_amp_vector(self):
         """
