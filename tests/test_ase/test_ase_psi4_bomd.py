@@ -73,7 +73,7 @@ def test_rteh_ase_bomd_comparison(n_run=10, plotting=False):
     # plot dynamics
     bond_rt = [np.sum((R[0, :] - R[1, :]) ** 2) ** 0.5 for R in traj_R_rt]
     bond_ase = [np.sum((R[0, :] - R[1, :]) ** 2) ** 0.5 for R in traj_R_ase]
-    assert np.allclose(bond_rt, bond_ase, atol=1e-5)
+    assert np.allclose(bond_rt, bond_ase, atol=1e-6)
 
     if plotting:
         import matplotlib.pyplot as plt
@@ -118,7 +118,7 @@ def test_rteh_rtdynamics_ase_bomd_comparison(n_run=10, plotting=False):
     )
     model_rt.initialize(dt_new=1.0, molecule_id=0)
     for i in range(n_run):
-        model_rt.propagate(effective_efield_vec=np.array([0.0, 0.0, 0.0]))
+        model_rt.propagate(effective_efield_vec=np.array([1e-2, 1e-2, 0.0]))
     traj_R_rt = model_rt.traj_R
 
     model_ase = mxl.ASEModel(
@@ -132,7 +132,7 @@ def test_rteh_rtdynamics_ase_bomd_comparison(n_run=10, plotting=False):
     positions = model_ase._snapshot()["positions"]
     traj_R_ase.append(positions * angstrom2bohr)
     for i in range(n_run):
-        model_ase.propagate(effective_efield_vec=np.array([0.0, 0.0, 0.0]))
+        model_ase.propagate(effective_efield_vec=np.array([1e-2, 1e-2, 0.0]))
         snapshot = model_ase._snapshot()
         positions = snapshot["positions"]
         traj_R_ase.append(positions * angstrom2bohr)
@@ -140,7 +140,7 @@ def test_rteh_rtdynamics_ase_bomd_comparison(n_run=10, plotting=False):
     # plot dynamics
     bond_rt = [np.sum((R[0, :] - R[1, :]) ** 2) ** 0.5 for R in traj_R_rt]
     bond_ase = [np.sum((R[0, :] - R[1, :]) ** 2) ** 0.5 for R in traj_R_ase]
-    assert np.allclose(bond_rt, bond_ase, atol=1e-5)
+    assert np.allclose(bond_rt, bond_ase, atol=1e-6)
 
     if plotting:
         import matplotlib.pyplot as plt

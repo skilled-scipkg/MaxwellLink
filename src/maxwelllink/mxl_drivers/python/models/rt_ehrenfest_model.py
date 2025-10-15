@@ -73,6 +73,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         rng_seed: int = 1234,
         homo_to_lumo: bool = False,
         partial_charges: list = None,
+        fix_nuclei_indices: list = None
     ):
         """
         Initialize the necessary parameters for the RT-TDDFT quantum dynamics model.
@@ -107,6 +108,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         + **`rng_seed`** (int): Random number generator seed for Langevin dynamics. Default is 1234.
         + **`homo_to_lumo`** (bool): Whether to prepare the initial state by promoting an electron from the HOMO to the LUMO. Default is False.
         + **`partial_charges`** (array-like): Array of partial charges for each atom in the molecule, required for BOMD simulations. Default is None.
+        + **`fix_nuclei_indices`** (list): List of indices of nuclei to fix during propagation. Default is None (no nuclei fixed).
         """
         super().__init__(
             engine=engine,
@@ -141,6 +143,7 @@ class RTEhrenfestModel(RTTDDFTModel):
 
         self.homo_to_lumo = homo_to_lumo
         self.partial_charges = partial_charges
+        self.fix_nuclei_indices = fix_nuclei_indices
 
     # -------------- heavy-load initialization (at INIT) --------------
 
@@ -243,6 +246,9 @@ class RTEhrenfestModel(RTTDDFTModel):
 
         self._count_append_xyz_to_file = 0
 
+        if self.fix_nuclei_indices is None:
+            self.fix_nuclei_indices = []
+
         # consider whether to restart from a checkpoint. We do this here because this function
         # is called in the driver during the INIT stage of the socket communication.
         if self.restart and self.checkpoint:
@@ -316,7 +322,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         """
         Da = self.X @ DaO @ self.X.T
         if self.is_restricted:
-            Db = self.Da.copy()
+            Db = Da.copy()
         else:
             Db = self.X @ DbO @ self.X.T
         return Da, Db
@@ -370,7 +376,6 @@ class RTEhrenfestModel(RTTDDFTModel):
         )
 
         # 4. rebuild KS/Fock at the new geometry with the mapped densities
-        """
         V_ext = None
         if effective_efield_vec is not None:
             V_ext = (
@@ -381,7 +386,6 @@ class RTEhrenfestModel(RTTDDFTModel):
         self.Fa, self.Fb = self._build_KS_psi4(
             self.Da, self.Db, self.is_restricted, V_ext=V_ext
         )
-        """
 
         timer_end = time.time()
         elapsed_time = timer_end - timer_start
@@ -440,22 +444,27 @@ class RTEhrenfestModel(RTTDDFTModel):
         on the current molecule geometry, updates metric transforms (X,U),
         and reinitializes the DFT V_potential grid freshly (no SCF).
         """
-        import psi4
-
         if not hasattr(self, "wfn") or self.wfn is None:
             raise RuntimeError(
                 "Wavefunction container (self.wfn) is not set. Call initialize() first."
             )
+        _refresh_opts = self.opts.copy()
+        _refresh_opts["e_convergence"] = 1e-1
+        _refresh_opts["d_convergence"] = 1e-1
+        _refresh_opts["maxiter"] = 3
+        _refresh_opts["fail_on_maxiter"] = False
+        psi4.set_options(_refresh_opts)
 
-        # basis object follows mol updated positions
-        basis = self.wfn.basisset()
-        mints = psi4.core.MintsHelper(basis)
+        # we use a cheap SCF call to refresh the Wavefunction object
+        _, wfn = psi4.energy(f"{self.functional}", return_wfn=True)
+        self.wfn = wfn
+
+        # Integrals, matrices, helpers
+        mints = psi4.core.MintsHelper(wfn.basisset())
+        self.S = np.asarray(wfn.S())
+        self.H = np.asarray(wfn.H())  # core Hamiltonian
 
         # AO integrals at new geometry
-        S = np.asarray(mints.ao_overlap())
-        T = np.asarray(mints.ao_kinetic())
-        V = np.asarray(mints.ao_potential())
-        H = T + V
         I_ao = np.asarray(mints.ao_eri())
         mu_ints = [np.asarray(m) for m in mints.ao_dipole()]
 
@@ -472,8 +481,6 @@ class RTEhrenfestModel(RTTDDFTModel):
             ]
 
         # Update metric transforms
-        self.S = S
-        self.H = H
         self.I_ao = I_ao
         self.mu_ints = mu_ints
         self.X = mat_pow(self.S, -0.5)
@@ -528,6 +535,9 @@ class RTEhrenfestModel(RTTDDFTModel):
         """
         timer_start = time.time()
 
+        # to override the psi4 scf options, which might be changed by the geometry refresh function
+        psi4.set_options(self.opts)
+
         G = np.asarray(psi4.gradient(f"{self.functional}", molecule=self.mol))
 
         # ---- Direct gradient from partial charge (-Z_A * E(t)) ----
@@ -543,6 +553,10 @@ class RTEhrenfestModel(RTTDDFTModel):
         G += g_field_nuc
 
         F = -G
+
+        if self.fix_nuclei_indices is not None:
+            for idx in self.fix_nuclei_indices:
+                forces[idx, :] = 0.0
 
         timer_end = time.time()
         elapsed_time = timer_end - timer_start
@@ -571,17 +585,13 @@ class RTEhrenfestModel(RTTDDFTModel):
         nat = self.mol.natom()
         nbf = self.S.shape[0]
 
-        # (not necessary) refresh all Psi4 integrals and machinery at the current geometry for safety
-        # self._refresh_psi4_internals_after_geom_change()
-
-        # symmetrize real AO densities
-        Da = np.real((self.Da + self.Da.T) / 2.0)
-        Db = np.real((self.Db + self.Db.T) / 2.0)
+        Da = self.Da.copy()
+        Db = self.Db.copy()
         D = Da + Db
 
         # AO Focks from your RT step (already built against current geometry)
-        Fa = np.asarray(self.Fa)
-        Fb = np.asarray(self.Fb)
+        Fa = np.asarray(self.Fa, dtype=complex)
+        Fb = np.asarray(self.Fb, dtype=complex)
 
         # Overlap factors
         S = np.asarray(self.S)
@@ -606,12 +616,18 @@ class RTEhrenfestModel(RTTDDFTModel):
                 np.asarray(M) for M in mints.ao_oei_deriv1(oei_type="POTENTIAL", atom=A)
             ]
             for c in range(3):
-                g_1e_T[A, c] += np.einsum("pq,pq->", D, dT[c], optimize=True)
-                g_1e_V[A, c] += np.einsum("pq,pq->", D, dV[c], optimize=True)
-                g_1e[A, c] += np.einsum("pq,pq->", D, dT[c] + dV[c], optimize=True)
+                g_1e_T[A, c] += np.einsum("pq,pq->", D, dT[c], optimize=True).real
+                g_1e_V[A, c] += np.einsum("pq,pq->", D, dV[c], optimize=True).real
+                g_1e[A, c] += np.einsum("pq,pq->", D, dT[c] + dV[c], optimize=True).real
 
         # --- 2. Two-electron derivatives: Coulomb & HF exchange ---
         g_2e_coul = np.zeros((nat, 3), dtype=float)
+        g_2e_exch_alpha = np.zeros((nat, 3), dtype=float)
+        g_2e_exch_beta = np.zeros((nat, 3), dtype=float)
+        g_2e_exch_alpha_real = np.zeros((nat, 3), dtype=float)
+        g_2e_exch_beta_real = np.zeros((nat, 3), dtype=float)
+        g_2e_exch_alpha_imag = np.zeros((nat, 3), dtype=float)
+        g_2e_exch_beta_imag = np.zeros((nat, 3), dtype=float)
         g_2e_exch = np.zeros((nat, 3), dtype=float)
         use_hf_exchange = self.alpha_hfx > 0.0
         for A in range(nat):
@@ -621,16 +637,39 @@ class RTEhrenfestModel(RTTDDFTModel):
             for c in range(3):
                 g_2e_coul[A, c] += 0.5 * np.einsum(
                     "pq,rs,pqrs->", D, D, dERI[c], optimize=True
-                )
+                ).real
                 if use_hf_exchange:
-                    g_2e_exch[A, c] -= (
+                    g_2e_exch_alpha[A, c] -= (
                         0.5
                         * self.alpha_hfx
-                        * (
-                            np.einsum("pr,qs,pqrs->", Da, Da, dERI[c], optimize=True)
-                            + np.einsum("pr,qs,pqrs->", Db, Db, dERI[c], optimize=True)
-                        )
+                        * np.einsum("pr,qs,pqrs->", Da, Da, dERI[c], optimize=True).real
                     )
+                    g_2e_exch_beta[A, c] -= (
+                        0.5
+                        * self.alpha_hfx
+                        * np.einsum("pr,qs,pqrs->", Db, Db, dERI[c], optimize=True).real
+                    )
+                    g_2e_exch_alpha_real[A, c] -= (
+                        0.5
+                        * self.alpha_hfx
+                        * np.einsum("pr,qs,pqrs->", np.real(Da), np.real(Da), dERI[c], optimize=True)
+                    )
+                    g_2e_exch_beta_real[A, c] -= (
+                        0.5
+                        * self.alpha_hfx
+                        * np.einsum("pr,qs,pqrs->", np.real(Db), np.real(Db), dERI[c], optimize=True)
+                    )
+                    g_2e_exch_alpha_imag[A, c] -= (
+                        0.5
+                        * self.alpha_hfx
+                        * np.einsum("pr,qs,pqrs->", np.imag(Da), np.imag(Da), dERI[c], optimize=True)
+                    )
+                    g_2e_exch_beta_imag[A, c] -= (
+                        0.5
+                        * self.alpha_hfx
+                        * np.einsum("pr,qs,pqrs->", np.imag(Db), np.imag(Db), dERI[c], optimize=True)
+                    )
+        g_2e_exch = g_2e_exch_alpha + g_2e_exch_beta
 
         # --- 3. Metric (non-variational) term from dS^{1/2} ---
         # Helpers to build dS^{1/2} from dS (Zhao et al. JCP 153, 224111 (2020))
@@ -645,7 +684,7 @@ class RTEhrenfestModel(RTTDDFTModel):
                     s_vec_j = s_vec[:, j][:, None]  # (nbf,1)
                     inv_sigma_i_sigma_j = 1.0 / (sqrt_sigma[i] + sqrt_sigma[j] + 1e-20)
                     sij = s_vec_i.T @ dS @ s_vec_j
-                    dS_half += (s_vec_i * inv_sigma_i_sigma_j * sij) @ s_vec_j.T
+                    dS_half += (s_vec_i * (inv_sigma_i_sigma_j * sij)) @ s_vec_j.T
             return dS_half
 
         g_s = np.zeros((nat, 3), dtype=float)
@@ -680,8 +719,8 @@ class RTEhrenfestModel(RTTDDFTModel):
                 Dm = psi4.core.Matrix.from_array(np.real((Da + Db) * 0.5))
                 V.set_D([Dm])
             else:
-                Da_m = psi4.core.Matrix.from_array(np.real((Da + Da.T) * 0.5))
-                Db_m = psi4.core.Matrix.from_array(np.real((Db + Db.T) * 0.5))
+                Da_m = psi4.core.Matrix.from_array(np.real((Da + Da.T.transpose()) * 0.5))
+                Db_m = psi4.core.Matrix.from_array(np.real((Db + Db.T.transpose()) * 0.5))
                 V.set_D([Da_m, Db_m])
 
             Gxc_mat = V.compute_gradient()
@@ -713,15 +752,26 @@ class RTEhrenfestModel(RTTDDFTModel):
         g = g_1e + g_2e_coul + g_2e_exch + g_s + g_nuc + g_xc + g_field_nuc
         forces = -g
 
+        if self.fix_nuclei_indices is not None:
+            for idx in self.fix_nuclei_indices:
+                forces[idx, :] = 0.0
+
         timer_end = time.time()
         elapsed_time = timer_end - timer_start
         if self.verbose:
-            """
+            '''
             print("Force components (Eh/Bohr):")
             print("begin components")
             print("  1e kinetic:\n", g_1e_T)
             print("  1e nuclear attraction:\n", g_1e_V)
             print("  1e Hellmann–Feynman:\n", g_1e)
+            print("  2e Coulomb:\n", g_2e_coul)
+            print("  2e HF exchange (alpha):\n", g_2e_exch_alpha)
+            print("  2e HF exchange (beta):\n", g_2e_exch_beta)
+            print("  2e HF exchange (alpha) real:\n", g_2e_exch_alpha_real)
+            print("  2e HF exchange (beta) real:\n", g_2e_exch_beta_real)
+            print("  2e HF exchange (alpha) imag:\n", g_2e_exch_alpha_imag)
+            print("  2e HF exchange (beta) imag:\n", g_2e_exch_beta_imag)
             print("  2e total:\n", g_2e_coul + g_2e_exch)
             print("  S term:\n", g_s)
             print("  nuclear repulsion:\n", g_nuc)
@@ -729,9 +779,10 @@ class RTEhrenfestModel(RTTDDFTModel):
                 print("  XC:\n", g_xc)
             print("  nuclear-field:\n", g_field_nuc)
             print("end of components\n")
-            """
+            '''
             print("Total Ehrenfest forces (Eh/Bohr):\n", forces)
             print(f"Ehrenfest force computation time: {elapsed_time:.6f} seconds")
+
         return forces
 
     def _prepare_alpha_homo_to_lumo_excited_state(self):
@@ -767,14 +818,15 @@ class RTEhrenfestModel(RTTDDFTModel):
         occ_a[homo] -= 1.0
         occ_a[lumo] += 1.0
 
-        # --- spin densities in AO basis: Dσ = C * diag(occσ) * C^T ---
-        # (multiply columns of C by occ, then right-multiply by C^T)
-        Da = (C * occ_a) @ C.T
-        Db = (C * occ_b) @ C.T
+        if self.verbose:
+            print("[init] Preparing alpha (HOMO->LUMO) excited determinant")
+            print("[init] occ_a:", occ_a)
+            print("[init] occ_b:", occ_b)
+            print("[init] Switching to unrestricted KS propagation.")
 
-        # enforce Hermiticity/realness
-        Da = 0.5 * (Da + Da.T.conj()).real
-        Db = 0.5 * (Db + Db.T.conj()).real
+        # --- spin densities in AO basis: Dσ = C * diag(occσ) * C^T ---
+        Da = C @ np.diag(occ_a) @ C.T
+        Db = C @ np.diag(occ_b) @ C.T
 
         # --- install densities and switch to UKS mode for propagation ---
         self.Da = Da
@@ -805,12 +857,6 @@ class RTEhrenfestModel(RTTDDFTModel):
         self.Fa, self.Fb = self._build_KS_psi4(
             self.Da, self.Db, restricted=False, V_ext=None
         )
-
-        if self.verbose:
-            print(
-                "[init] Preparing alpha (HOMO->LUMO) excited determinant; "
-                "switching to unrestricted KS propagation and rebuilding Fa/Fb."
-            )
 
     def _propagate_rttddft_ehrenfest(
         self,
@@ -1298,7 +1344,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         self.Vk = snapshot["Vk"]
         self.Rk = snapshot["Rk"]
         self.Fk = snapshot["Fk"]
-        self._V_inst = (snapshot["_V_inst"],)
+        self._V_inst = snapshot["_V_inst"]
         self._step_in_cycle = snapshot["_step_in_cycle"]
 
 

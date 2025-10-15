@@ -502,7 +502,7 @@ class RTTDDFTModel(DummyModel):
 
         if self.verbose:
             print(
-                f"[molecule ID {self.molecule_id}] Time: {self.t:.4f} a.u., receiving effective_efield_vec: {effective_efield_vec[2]:.6E}"
+                f"[molecule ID {self.molecule_id}] Time: {self.t:.4f} a.u., receiving e-field vector: [{effective_efield_vec[0]:.4E}, {effective_efield_vec[1]:.4E}, {effective_efield_vec[2]:.4E}]"
             )
 
         if self.engine == "psi4":
@@ -618,7 +618,7 @@ class RTTDDFTModel(DummyModel):
 
         if self.verbose:
             print(
-                f"[molecule ID {self.molecule_id}] Time: {self.t:.4f} a.u., receiving effective_efield_vec: {effective_efield_vec[2]:.6E}"
+                f"[molecule ID {self.molecule_id}] Time: {self.t:.4f} a.u., receiving e-field vector: [{effective_efield_vec[0]:.4E}, {effective_efield_vec[1]:.4E}, {effective_efield_vec[2]:.4E}]"
             )
 
         if self.engine == "psi4":
