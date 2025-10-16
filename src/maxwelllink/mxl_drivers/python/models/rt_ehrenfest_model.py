@@ -886,6 +886,11 @@ class RTEhrenfestModel(RTTDDFTModel):
             self.Da, self.Db, restricted=False, V_ext=None
         )
 
+        Etot, __ = self._energy_dipole_analysis_psi4(self.Da, self.Db)
+        self.E0 = Etot
+        if self.verbose:
+            print(f"[init] After HOMO->LUMO swap: E0 = {self.E0:.6f} Eh")
+
     def _propagate_rttddft_ehrenfest(
         self,
         n_nuc_steps: int,
@@ -1057,6 +1062,7 @@ class RTEhrenfestModel(RTTDDFTModel):
             # ---- (1) first half-kick of velocity Verlet (p_{k+1/2})
             self.Vk_half = Vk + 0.5 * (Fk / mass_au[:, None]) * dtN
             self._V_inst = self.Vk_half
+            self.kinEnuc = 0.5 * np.sum(self.mass_au[:, None] * (self._V_inst**2))
 
             # ---- (2) electronic propagation over n Fock windows
             # Geometry used for integrals in the j-th window:
@@ -1107,7 +1113,7 @@ class RTEhrenfestModel(RTTDDFTModel):
             # clear step counter
             self._step_in_cycle = 0
             self._V_inst = self.Vk
-            self.kinEnuc = 0.5 * np.sum(self.mass_au[:, None] * (self.Vk**2))
+            self.kinEnuc = 0.5 * np.sum(self.mass_au[:, None] * (self._V_inst**2))
 
             if self.verbose:
                 print("[RT-Ehrenfest] one nuclear step done.")
@@ -1141,6 +1147,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         for k in range(int(1)):
             # ---- (1) first half-kick of velocity Verlet (p_{k+1/2})
             Vk_half = Vk + 0.5 * (Fk / mass_au[:, None]) * dtN
+            self.kinEnuc = 0.5 * np.sum(self.mass_au[:, None] * (Vk_half**2))
 
             # ---- (2) electronic propagation over n Fock windows
             # Geometry used for integrals in the j-th window:
