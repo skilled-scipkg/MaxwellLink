@@ -218,6 +218,9 @@ psi*.clean
 # raw tests
 tests/raw_tests/
 
+#doc
+docs/source/api
+
 # under development
 src/maxwelllink/mxl_drivers/python/models/*.npz
 src/maxwelllink/mxl_drivers/python/models/*.txt

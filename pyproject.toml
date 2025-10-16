@@ -41,6 +41,16 @@ dev = [
   "flake8>=7.0",
   "pre-commit>=3.6",
 ]
+docs = [
+  "sphinx>=7.2",
+  "furo>=2024.1.29",                 # clean theme
+  "sphinx-autodoc-typehints>=2.1",   # render type hints nicely
+  "sphinxcontrib-napoleon>=0.7",     # Google/NumPy style docstrings
+  "myst-parser>=3.0",                # Markdown support
+  "sphinx-copybutton>=0.5",          # copy code buttons
+  "sphinx-design>=0.6",              # simple cards/grids
+  "nbsphinx>=0.9",                   # if you want notebooks in docs (optional)
+]
 
 [tool.black]
 line-length = 88
