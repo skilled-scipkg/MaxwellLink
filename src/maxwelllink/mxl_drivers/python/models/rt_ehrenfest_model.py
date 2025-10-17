@@ -394,11 +394,12 @@ class RTEhrenfestModel(RTTDDFTModel):
 
     def _refresh_psi4_internals_after_geom_change(self):
         """
-        Cheap, SCF-free refresh after a geometry change.
+        Refresh all Psi4 internal objects (S, H, ERI, Vpot, ...) after a geometry change.
 
-        Recomputes one- and two-electron AO integrals and dipoles with libmints
-        on the current molecule geometry, updates metric transforms (X,U),
-        and reinitializes the DFT V_potential grid freshly (no SCF).
+        Currently, this function performs a cheap SCF calculation (3 iterations with loose
+        convergence) to refresh the Wavefunction object at the new geometry. This is necessary
+        to update the XC potential object V_potential() and the DFT grid, which cannot be
+        manually refreshed.
         """
         if not hasattr(self, "wfn") or self.wfn is None:
             raise RuntimeError(

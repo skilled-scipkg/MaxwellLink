@@ -100,12 +100,15 @@ def test_2d_2tls_relaxation_matches_analytical_via_socket(plotting=False):
             time_units_fs=0.1,
         )
 
-        sim = mp.Simulation(
+        sim = mxl.MeepSimulation(
             cell_size=cell,
             geometry=geometry,
             sources=sources_non_molecule,
             boundary_layers=pml_layers,
             resolution=resolution,
+            hub=hub,
+            molecules=[molecule1, molecule2],
+            time_units_fs=0.1,
         )
 
         if mp.am_master():
@@ -124,9 +127,9 @@ def test_2d_2tls_relaxation_matches_analytical_via_socket(plotting=False):
 
         # Run the coupled loop; the driver provides the source amplitude each step
         sim.run(
-            mxl.update_molecules(
-                hub=hub, sources_non_molecule=[], molecules=[molecule1, molecule2]
-            ),
+            # mxl.update_molecules(
+            #    hub=hub, sources_non_molecule=[], molecules=[molecule1, molecule2]
+            # ),
             until=90,
         )
 

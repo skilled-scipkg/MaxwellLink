@@ -8,3 +8,5 @@ Welcome to MaxwellLink’s documentation!
    usage
    examples/hello_world
 
+   api/maxwelllink
+

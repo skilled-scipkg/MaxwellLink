@@ -224,4 +224,6 @@ docs/source/api
 # under development
 src/maxwelllink/mxl_drivers/python/models/*.npz
 src/maxwelllink/mxl_drivers/python/models/*.txt
-src/maxwelllink/mxl_drivers/python/models/rttddft_df_model.py
+src/maxwelllink/mxl_drivers/python/models/rttddft_df_model.py*
+src/maxwelllink/em_solvers
+src/maxwelllink/molecule_abstract.py*

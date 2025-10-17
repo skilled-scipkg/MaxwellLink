@@ -275,6 +275,9 @@ class TLSMolecule(DummyMolecule):
         )
         self.rho = np.dot(self.C, self.C.conj().transpose())
 
+    def _refresh_time_units(self, time_units_fs):
+        pass
+
     def _init_sources(self):
         """
         Initialize the sources for the TLS molecule.
@@ -803,6 +806,12 @@ class SocketMolecule(DummyMolecule):
 
         # store the additional data the driver code transfers back to SocketMolecule. Each entry is a dict.
         self.additional_data_history = []
+
+    def _refresh_time_units(self, time_units_fs):
+        self.time_units_fs = time_units_fs
+        self.dt_au = self.dt * time_units_fs * fs_to_au
+        # also refresh in init_payload for drivers
+        self.init_payload["dt_au"] = self.dt_au
 
     def _init_sources(self):
         """
@@ -1385,3 +1394,105 @@ def update_molecules(
         # NO sim.change_sources() here.
 
     return __step_function__
+
+
+class MeepSimulation(mp.Simulation):
+    """
+    A wrapper of meep.Simulation with MaxwellLink features.
+
+    This class extends the meep.Simulation class to include functionalities for coupling with quantum mechanical models via MaxwellLink.
+    It provides methods to set up the simulation, run it with time-dependent electric fields, and communicate with external quantum drivers.
+
+    Attributes:
+        socket_hub (SocketHub): An instance of SocketHub for managing socket communication.
+        time_units_fs (float): Time unit in femtoseconds for unit conversions.
+        efield_history (List[np.ndarray]): History of electric field vectors during the simulation.
+        dipole_history (List[np.ndarray]): History of dipole moment vectors received from the quantum driver.
+    """
+
+    def __init__(
+        self,
+        hub: Optional[SocketHub] = None,
+        molecules: Optional[List] = None,
+        time_units_fs: Optional[float] = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.socket_hub = hub
+        self.molecules = molecules if molecules is not None else []
+        self.time_units_fs = time_units_fs
+
+        # we need to reassign the time_units_fs to each molecule
+        for m in self.molecules:
+            m._refresh_time_units(time_units_fs)
+
+        # output units helper
+        if hub is not None and mp.am_master():
+            self._units_helper()
+
+    def _units_helper(self):
+        """
+        Helper function to explain the unit system used in MEEP and its connection to atomic units.
+        This units helper will reduce the confusion when using MEEP with molecular dynamics.
+        """
+        # calculate units conversion factors
+        mu2efield_au = meep_to_atomic_units_E(1.0, self.time_units_fs)
+        mu2efield_si = mu2efield_au * 5.14220675112e11  # V/m
+        dx = 1.0 / self.resolution
+        dt = self.Courant * dx
+        # audipoledt2mu = atomic_to_meep_units_SourceAmp(1.0, self.time_units_fs)
+        print(
+            "\n\n ######### MaxwellLink Units Helper #########\n",
+            "MEEP uses its own units system, which is based on the speed of light in vacuum (c=1), \n",
+            "the permittivity of free space (epsilon_0=1), and the permeability of free space (mu_0=1). \n",
+            "To couple MEEP with molecular dynamics, we set [c] = [epsilon_0] = [mu_0] = [hbar] = 1. \n",
+            "By further defining the time unit as %.2E fs, we can fix the units system of MEEP (mu).\n\n"
+            % self.time_units_fs,
+            "Given the simulation resolution = %d,\n - FDTD dt = %.2E mu (0.5/resolution) = %.2E fs\n"
+            % (self.resolution, dt, dt * self.time_units_fs),
+            "- FDTD dx = %.2E mu (1.0/resolution) = %.2E nm\n"
+            % (dx, dx * self.time_units_fs * 299.792458),
+            "- Time [t]: 1 mu = %.2E fs = %.2E a.u.\n"
+            % (self.time_units_fs, self.time_units_fs * fs_to_au),
+            "- Length [x]: 1 mu = %.2E nm\n" % (299.792458 * self.time_units_fs),
+            # "- Frequency (defining MEEP source frequency) [f]: 1 mu = %.4E THz\n"
+            # % (41.341373335 / self.time_units_fs / 2.0 / np.pi),
+            "- Angular frequency [omega = 2 pi * f]: 1 mu = %.4E eV = %.4E a.u.\n"
+            % (
+                0.242 / self.time_units_fs * 27.211 * 0.1,
+                0.242 / self.time_units_fs * 0.1,
+            ),
+            "- Electric field [E]: 1 mu = %.2E V/m = %.2E a.u.\n"
+            % (mu2efield_si, mu2efield_au),
+            # "- Dipole moment [d]: 1 mu = %.2E C*m = %.2E a.u.\n"
+            # % (1.0 * self.dx * 299.792458, 1.0 * self.dx * 299.792458 * 1.0),
+            "Hope this helps!\n",
+            "############################################\n\n",
+        )
+
+    # overload mp.Simulation.run() function
+    def run(self, *user_step_funcs, **kwargs):
+        """
+        `run(step_functions..., until=condition/time)`  ##sig-keep
+
+        Run the simulation until a certain time or condition, calling the given step
+        functions (if any) at each timestep. The keyword argument `until` is *either* a
+        number, in which case it is an additional time (in Meep units) to run for, *or* it
+        is a function (of no arguments) which returns `True` when the simulation should
+        stop. `until` can also be a list of stopping conditions which may include a number
+        of additional functions.
+        """
+        step_funcs = list(user_step_funcs)
+        if self.molecules:
+            # auto-insert our coupling step first
+            if any(isinstance(m, SocketMolecule) for m in self.molecules) or (
+                self.socket_hub is not None
+            ):
+                step_funcs.insert(
+                    0, update_molecules(self.socket_hub, self.molecules, self.sources)
+                )
+            else:
+                step_funcs.insert(
+                    0, update_molecules_no_socket(self.sources, self.molecules)
+                )
+        super().run(*step_funcs, **kwargs)

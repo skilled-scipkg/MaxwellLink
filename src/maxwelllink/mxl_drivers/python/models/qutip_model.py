@@ -154,23 +154,33 @@ def _build_model_tls(
 
 class QuTiPModel(DummyModel):
     """
-    General N-level quantum model driven by an external E-field using QuTiP:
+    General N-level quantum model driven by an external E-field using QuTiP.
 
-        H(t) = H0 - Ex(t)*mu_x - Ey(t)*mu_y - Ez(t)*mu_z
+    The time-dependent Hamiltonian is
+    :math:`H(t) = H_0 - E_x(t)\\mu_x - E_y(t)\\mu_y - E_z(t)\\mu_z`.
 
     Two options for constructing the N-level quantum model are provided:
-    - Preset TLS via simple --param "preset=tls,preset_kwargs=omega=0.242,mu12=187,orientation=2,pe_initial=1e-4"
-    - Fully custom model via --param "module=/path/spec.py,kwargs=...".
-      The module must define `build_model(**kwargs)` that returns a dict with keys:
 
-        def build_model(**kwargs):
-            return {
-                "H0": qutip.Qobj (NxN),
-                "mu_ops": {"x":Qobj|None, "y":Qobj|None, "z":Qobj|None},
-                "c_ops": [Qobj, ...],
-                "rho0":  Qobj (ket or density matrix),
-            }
-      Optional fields may be omitted; defaults: no c_ops, rho0=ground state if not provided.
+    - **Preset TLS** via a simple CLI parameter, e.g.:
+      ``--param "preset=tls,preset_kwargs=omega=0.242,mu12=187,orientation=2,pe_initial=1e-4"``
+    - **Fully custom model** via:
+      ``--param "module=/path/spec.py,kwargs=..."``
+
+      The module must define a callable ``build_model(**kwargs)`` that returns a
+      dictionary with the following keys:
+
+      .. code-block:: python
+
+          def build_model(**kwargs):
+              return {
+                  "H0": qutip.Qobj,                         # (N x N)
+                  "mu_ops": {"x": Qobj|None, "y": Qobj|None, "z": Qobj|None},
+                  "c_ops": [Qobj, ...],
+                  "rho0":  Qobj,                             # ket or density matrix
+              }
+
+      Optional fields may be omitted; defaults: no ``c_ops``, and ``rho0`` is the
+      ground state if not provided.
     """
 
     def __init__(
@@ -192,20 +202,33 @@ class QuTiPModel(DummyModel):
         """
         Initialize the necessary parameters for the QuTiP quantum dynamics model.
 
-        + **`preset`** (str): Preset model name, e.g. 'tls'. Default is 'tls'.
-        + **`preset_kwargs`** (str): Comma-separated key=value pairs for the preset, such as
-        `preset_kwargs=omega=0.242,mu12=187,orientation=2,pe=1e-4`. All key value pairs not recognized
-        will be treated as preset parameters.
-        + **`module`** (str): Path to a Python file defining `build_model(**kwargs)`.
-        + **`kwargs`** (str): Comma-separated key=value pairs for the user module, such as
-        `kwargs=omega=0.242,mu12=187,orientation=2,pe=1e-4`. All key value pairs not recognized
-        will be treated as user module parameters if module is not None.
-        + **`fd_dmudt`** (bool): Whether to use finite-difference dmu/dt for current density computation.
-          Default is True. If False, an analytical derivative will be used if available.
-        + **`verbose`** (bool): Whether to print verbose output. Default is False.
-        + **`checkpoint`** (bool): Whether to enable checkpointing. Default is False.
-        + **`restart`** (bool): Whether to restart from a checkpoint if available. Default is False.
-        + **`**extra`**: Additional keyword arguments for future extensions.
+        Parameters
+        ----------
+        preset : str, default: 'tls'
+            Preset model name, e.g. ``'tls'``. Default is ``'tls'``.
+        preset_kwargs : str
+            Comma-separated ``key=value`` pairs for the preset, such as
+            ``preset_kwargs=omega=0.242,mu12=187,orientation=2,pe=1e-4``.
+            All key value pairs not recognized will be treated as preset parameters.
+        module : str or None, default: None
+            Path to a Python file defining ``build_model(**kwargs)``.
+        kwargs : str
+            Comma-separated ``key=value`` pairs for the user module, such as
+            ``kwargs=omega=0.242,mu12=187,orientation=2,pe=1e-4``.
+            All key value pairs not recognized will be treated as user module
+            parameters if ``module`` is not ``None``.
+        fd_dmudt : bool, default: True
+            Whether to use finite-difference :math:`\\mathrm{d}\\mu/\\mathrm{d}t` for current
+            density computation. Default is ``True``. If ``False``, an analytical
+            derivative will be used if available.
+        verbose : bool, default: False
+            Whether to print verbose output. Default is ``False``.
+        checkpoint : bool, default: False
+            Whether to enable checkpointing. Default is ``False``.
+        restart : bool, default: False
+            Whether to restart from a checkpoint if available. Default is ``False``.
+        **extra
+            Additional keyword arguments for future extensions.
         """
         super().__init__(verbose=verbose, checkpoint=checkpoint, restart=restart)
 

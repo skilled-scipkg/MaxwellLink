@@ -27,17 +27,20 @@ __all__ = [
     "QuTiPModel",
     "ASEModel",
     "TLSModel",
+    "MeepSimulation",
 ]
 
 
 # Lazy attribute loader: import submodules *only when accessed*.
 def __getattr__(name):
+    # Legacy code path (molecule_fast) kept for reference; prefer molecule_abstract + em_solvers/meep now.
     if name in {
         "TLSMolecule",
         "SocketMolecule",
         "update_molecules",
         "update_molecules_no_mpi",
         "update_molecules_no_socket",
+        "MeepSimulation",
     }:
         from .molecule_fast import (
             TLSMolecule,
@@ -45,6 +48,7 @@ def __getattr__(name):
             update_molecules,
             update_molecules_no_mpi,
             update_molecules_no_socket,
+            MeepSimulation,
         )
 
         return locals()[name]
