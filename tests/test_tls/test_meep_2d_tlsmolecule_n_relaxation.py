@@ -88,7 +88,6 @@ def test_2d_ntls_relaxation_matches_analytical(plotting=False):
             std_dev < 3e-3 and max_abs_diff < 8e-3
         ), f"std_dev={std_dev:.3g}, max_abs_diff={max_abs_diff:.3g}"
 
-
 @pytest.mark.core
 def test_2d_ntls_relaxation_matches_analytical_v2(plotting=False):
     """
@@ -111,18 +110,20 @@ def test_2d_ntls_relaxation_matches_analytical_v2(plotting=False):
     frequency = 1.0
     tls_lst = []
     for idx in range(n_tls):
-        tls = mxl.TLSMolecule(
-            resolution=resolution,
-            center=mp.Vector3(0, 0, 0),
-            size=mp.Vector3(1, 1, 1),
-            frequency=frequency,
-            dipole_moment=dipole_moment,
-            sigma=0.1,
-            dimensions=2,
-            orientation=mp.Ez,
+        tls = mxl.Molecule(
+        driver="tls",
+        center=mp.Vector3(0, 0, 0),
+        size=mp.Vector3(1, 1, 1),
+        sigma=0.1,
+        dimensions=2,
+        driver_kwargs={
+            "omega": 2.4188843e-1,
+            "mu12": 1.870819866e2 / np.sqrt(n_tls),
+            "orientation": 2,
+            "pe_initial": 1e-2,
+            "verbose": False,
+        },
         )
-        # small initial excited-state population
-        tls.reset_tls_population(1e-4)
         tls_lst.append(tls)
 
     sim = mxl.MeepSimulation(
@@ -132,16 +133,21 @@ def test_2d_ntls_relaxation_matches_analytical_v2(plotting=False):
         boundary_layers=pml_layers,
         resolution=resolution,
         molecules=tls_lst,
+        time_units_fs=0.1,
+        hub=None,
     )
 
     # run coupled update (no sockets path)
-    sim.run(until=90)
+    sim.run(
+        until=90,
+    )
 
     # Only rank 0 collects/asserts (safe under MPI or serial)
     if mp.am_master():
         tls = tls_lst[0]  # check only the first TLS
         population = np.array([np.real(ad["Pe"]) for ad in tls.additional_data_history])
-        time = np.array([np.real(ad["time"]) for ad in tls.additional_data_history])
+        time = np.array([np.real(ad["time_au"]) for ad in tls.additional_data_history])
+        time *= 0.02418884254 / 0.1  # convert to meep units
 
         # analytical golden-rule rate in 2D
         gamma = dipole_moment**2 * (frequency) ** 2 / 2.0 * n_tls
@@ -170,7 +176,5 @@ def test_2d_ntls_relaxation_matches_analytical_v2(plotting=False):
             std_dev < 3e-3 and max_abs_diff < 8e-3
         ), f"std_dev={std_dev:.3g}, max_abs_diff={max_abs_diff:.3g}"
 
-
 if __name__ == "__main__":
     test_2d_ntls_relaxation_matches_analytical_v2(plotting=True)
-    test_2d_ntls_relaxation_matches_analytical(plotting=True)

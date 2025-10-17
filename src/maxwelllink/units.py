@@ -1,6 +1,6 @@
 import numpy as np
 
-fs_to_au = 41.341373335  # 1 fs in atomic units
+FS_TO_AU = 41.341373335  # 1 fs in atomic units
 
 
 def meep_to_atomic_units_E(Emu_vec3, time_units_fs: float = 0.1):

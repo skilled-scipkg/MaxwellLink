@@ -27,7 +27,9 @@ __all__ = [
     "QuTiPModel",
     "ASEModel",
     "TLSModel",
+    # v2 features
     "MeepSimulation",
+    "Molecule",
 ]
 
 
@@ -40,7 +42,6 @@ def __getattr__(name):
         "update_molecules",
         "update_molecules_no_mpi",
         "update_molecules_no_socket",
-        "MeepSimulation",
     }:
         from .molecule_fast import (
             TLSMolecule,
@@ -48,10 +49,28 @@ def __getattr__(name):
             update_molecules,
             update_molecules_no_mpi,
             update_molecules_no_socket,
+        )
+
+        return locals()[name]
+
+    if name in {
+        "Molecule",
+    }:
+        from .molecule_abstract import (
+            Molecule,
+        )
+
+        return locals()[name]
+
+    if name in {
+        "MeepSimulation",
+    }:
+        from .em_solvers.meep import (
             MeepSimulation,
         )
 
         return locals()[name]
+
     if name in {"SocketHub", "get_available_host_port"}:
         from .sockets import SocketHub, get_available_host_port
 

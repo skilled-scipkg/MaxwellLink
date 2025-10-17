@@ -59,15 +59,15 @@ class TLSModel(DummyModel):
         self.pe_initial = pe_initial  # initial population in the excited state
 
         # set the Hamiltonian and density matrix for the TLS molecule
-        self.Hs = np.matrix([[0, 0], [0, self.omega]], dtype=np.complex128)
-        self.SIGMAX = np.matrix([[0, 1], [1, 0]], dtype=np.complex128)
+        self.Hs = np.array([[0, 0], [0, self.omega]], dtype=np.complex128)
+        self.SIGMAX = np.array([[0, 1], [1, 0]], dtype=np.complex128)
 
         # expHs uses dt, which is 0.0 at construction of the base class (DummyModel)
         # Therefore, we need to update it in the initialize() method.
         self.expHs = expm(-1j * self.dt * self.Hs / 2.0)
 
         # initial wavefunction and density matrix as ground state
-        self.C = np.matrix([[1], [0]], dtype=np.complex128)
+        self.C = np.array([[1], [0]], dtype=np.complex128)
         self.rho = np.dot(self.C, self.C.conj().transpose())
         # reset the initial population
         self._reset_tls_population(excited_population=self.pe_initial)
@@ -96,6 +96,7 @@ class TLSModel(DummyModel):
 
         # Rebuild expHs with new dt sent from SocketHub
         self.expHs = expm(-1j * self.dt * self.Hs / 2.0)
+        print("init TLSModel with dt = %.6f a.u., molecule ID = %d" % (self.dt, self.molecule_id))
 
         # Consider whether to restart from a checkpoint. We do this here because this function
         # is called in the driver during the INIT stage of the socket communication.
@@ -114,7 +115,7 @@ class TLSModel(DummyModel):
         """
         if excited_population < 0 or excited_population > 1:
             raise ValueError("Excited population must be between 0 and 1.")
-        self.C = np.matrix(
+        self.C = np.array(
             [[(1 - excited_population) ** 0.5], [excited_population**0.5]],
             dtype=np.complex128,
         )

@@ -231,6 +231,20 @@ def am_master():
     return _RANK == 0
 
 
+# helper function to broadcast a value from master to all MPI ranks
+def mpi_bcast_from_master(value):
+    try:
+        from mpi4py import MPI as _MPI
+
+        _COMM = _MPI.COMM_WORLD
+    except Exception:
+        _COMM = None
+
+    if _COMM is not None:
+        value = _COMM.bcast(value, root=0)
+    return value
+
+
 class SocketHub:
     """
     A socket server that handles multiple driver connections with the FDTD engine.
@@ -317,6 +331,9 @@ class SocketHub:
             self._lock = threading.RLock()
             self._accept_th = threading.Thread(target=self._accept_loop, daemon=True)
             self._accept_th.start()
+
+            # assign a molecular id accumulator
+            self._molecule_id_counter = 0
 
         # molecule_id -> ClientState (locked client)
         self.bound: Dict[int, ClientState] = {}
@@ -474,6 +491,20 @@ class SocketHub:
             self._inflight["sent"][molid] = False
             self._inflight["ready"][molid] = False
 
+    def _find_free_molecule_id(self) -> int:
+        """
+        Find an available molecule ID that is not already registered.
+
+        Returns:
+        -----------
+        - molecule_id (int): The assigned unique molecule ID.
+        """
+        while True:
+            molecule_id = self._molecule_id_counter
+            self._molecule_id_counter += 1
+            if molecule_id not in self.expected:
+                return molecule_id
+
     # -------------- public API --------------
 
     def register_molecule(self, molecule_id: int) -> None:
@@ -489,6 +520,22 @@ class SocketHub:
             # No explicit state needed yet; client binds on INIT.
             self.expected.add(int(molecule_id))
             self.bound.setdefault(int(molecule_id), None)
+
+    def register_molecule_return_id(self) -> int:
+        """
+        Reserve a slot for the client if the molecule_id is not provided.
+
+        We will assign a unique molecule_id automatically and return it.
+
+        Returns:
+        -----------
+        - molecule_id (int): The assigned unique molecule ID.
+        """
+        with self._lock:
+            # Find an available molecule_id
+            molecule_id = self._find_free_molecule_id()
+            self.register_molecule(molecule_id)
+            return molecule_id
 
     def step_barrier(
         self, requests: Dict[int, dict], timeout: Optional[float] = None
