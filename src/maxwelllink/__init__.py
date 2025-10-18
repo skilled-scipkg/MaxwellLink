@@ -25,6 +25,7 @@ __all__ = [
     # v2 features
     "MeepSimulation",
     "Molecule",
+    "SingleModeSimulation",
 ]
 
 
@@ -80,6 +81,14 @@ def __getattr__(name):
     }:
         from .em_solvers.meep import (
             MeepSimulation,
+        )
+
+        return locals()[name]
+    if name in {
+        "SingleModeSimulation",
+    }:
+        from .em_solvers.single_mode_cavity import (
+            SingleModeSimulation,
         )
 
         return locals()[name]

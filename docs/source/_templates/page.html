@@ -1,0 +1,33 @@
+{% extends "!page.html" %}
+
+{% block content %}
+  {% if pagename == "index" %}
+    <section class="mxl-hero">
+      <span class="mxl-hero__badge">Hybrid EM · Quantum Workflow</span>
+      <h1 class="mxl-hero__title">MaxwellLink: A light-matter simulator</h1>
+      <p class="mxl-hero__lead">
+        MaxwellLink synchronises time-domain EM solvers with first-principles
+        quantum chemistry, molecular dynamics, and model Hamiltonians.
+      </p>
+      <div class="mxl-hero__actions">
+        <a class="mxl-button mxl-button--primary" href="{{ pathto('installation') }}">
+          Install MaxwellLink
+        </a>
+        <a class="mxl-button mxl-button--ghost" href="{{ pathto('tutorials/index') }}">
+          Launch Tutorials
+        </a>
+      </div>
+      <dl class="mxl-hero__stats">
+        <div>
+          <dt>Electromagnetics</dt>
+          <dd>Meep FDTD &amp; single-mode cavity</dd>
+        </div>
+        <div>
+          <dt>Driver Ecosystem</dt>
+          <dd>Psi4 RT-Ehrenfest · ASE · LAMMPS · QuTiP</dd>
+        </div>
+      </dl>
+    </section>
+  {% endif %}
+  {{ super() }}
+{% endblock %}

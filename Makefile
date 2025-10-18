@@ -1,5 +1,5 @@
 .PHONY: lint pretty
-SRC=src tests examples
+SRC=src tests examples tutorials
 
 lint:
 	flake8 --select=F --per-file-ignores="**/__init__.py:F401" $(SRC)

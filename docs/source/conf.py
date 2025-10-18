@@ -70,7 +70,27 @@ napoleon_use_rtype = True
 # Theme
 html_theme = "furo"
 
+html_theme_options = {
+    "sidebar_hide_name": False,
+    "top_of_page_button": "edit",
+    "light_css_variables": {
+        "color-brand-primary": "#1264a3",
+        "color-brand-content": "#0d2a4d",
+        "color-sidebar-background": "#f6f9ff",
+        "color-admonition-background": "rgba(18, 100, 163, 0.08)",
+    },
+    "dark_css_variables": {
+        "color-brand-primary": "#66c7ff",
+        "color-brand-content": "#d6ecff",
+        "color-sidebar-background": "#0d1829",
+        "color-admonition-background": "rgba(102, 199, 255, 0.12)",
+    },
+}
+
 # General Sphinx settings
 templates_path = ["_templates"]
 exclude_patterns = ["_build"]
 html_static_path = ["_static"]
+html_css_files = [
+    "css/custom.css",
+]
