@@ -6,18 +6,18 @@ Architecture overview
 
 MaxwellLink separates electromagnetic propagation from molecular dynamics by
 placing them in different processes (or even different nodes) and letting them
-communicate through a socket protocol derived from the i-PI project:
+communicate through a socket protocol, inspired by the i-PI project:
 
-1. The FDTD code (Meep at present) advances Maxwell's equations on its grid.
-2. After each time step, MaxwellLink measures the regularised electric field at
+1. The EM solver (Meep FDTD or single-mode cavity) advances Maxwell's equations.
+2. After each time step, MaxwellLink measures the regularized electric field at
    every coupled molecule and converts it to atomic units.
 3. Those field vectors are sent to the driver processes through a ``SocketHub``
    barrier call.
-4. Each driver propagates its molecular model for one FDTD step (possibly using
+4. Each driver propagates its molecular model for one EM step (possibly using
    sub-steps) and returns the time-derivative of the dipole moment and optional
    metadata.
-5. The returned amplitudes are converted back to EM units and injected as Meep
-   ``CustomSource`` objects before the next time step begins.
+5. The returned amplitudes are converted back to EM units and injected to EM solvers 
+   before the next time step begins.
 
 SocketHub
 ---------
@@ -26,63 +26,81 @@ SocketHub
 
 - Supports both TCP sockets (``host``/``port``) and UNIX domain sockets
   (``unixsocket``).
-- Generates molecule IDs on demand or respects IDs provided by the FDTD script.
-- Implements the ``NEEDINIT → INIT → READY/HAVEDATA`` handshake for each client.
+- Generates molecule IDs on demand.
+- Implements the ``NEEDINIT -> INIT -> READY/HAVEDATA`` handshake for each client.
 - Detects dropped connections during sends or receives and pauses the EM solver
   until all expected drivers reconnect (see the reconnection loops exercised in
   ``tests/test_tls/test_meep_2d_socket_tls1_relaxation.py``).
-- Exposes helpers such as :func:`maxwelllink.sockets.get_available_host_port`
-  and :func:`maxwelllink.sockets.mpi_bcast_from_master` so the same configuration
-  can be shared across MPI ranks.
+- Exposes helpers such as :func:`maxwelllink.sockets.get_available_host_port` for easy
+  use.
 
-Molecules
+Abstract Molecule
 ---------
 
-Molecule wrapper
-----------------
-
-``maxwelllink.Molecule`` covers both socket-coupled and in-process models. Pass
-``hub=SocketHub(...)`` to connect to an external driver or ``driver="tls"`` (and
+``Molecule`` provides a unified interface for constructing molecular 
+drivers for both socket communications and non-socket (single-process) runs. Pass
+``hub=SocketHub(...)`` to connect to an external driver, or ``driver="tls"`` (and
 ``driver_kwargs``) to instantiate the model locally. Every molecule records
-diagnostics in ``additional_data_history`` and maintains a hashable
-``polarization_fingerprint`` so that Meep can reuse spatial kernels for
-identical molecules (critical for the superradiance tests).
+time-resolved data in ``additional_data_history``.
 
-Each molecule stores the EM resolution (``resolution``), dimensions (1D/2D/3D),
-Gaussian width (``sigma``), and centre/size of its coupling volume. These values
-are used by :mod:`maxwelllink.em_solvers.meep` to build the correct spatial
-envelope and interpolate fields.
+In ``Molecule``, each molecule only stores the information necessary for
+EM simulations, such as the center / size of the molecule in the EM grid and the
+Gaussian width (``sigma``) for molecular polarization density distribution. The detailed 
+molecular parameters and dynamics are handled by each driver implementation.
 
-EM solver integration
+EM solvers
 ---------------------
 
 ``MeepSimulation`` derives from :class:`meep.Simulation` and automatically
-inserts the appropriate coupling step when ``run`` is called:
+inserts the appropriate step function for updating molecules when ``MeepSimulation.run()`` is called.
+When using ``MeepSimulation``, three additional parameters should be specified compared to a regular
+``meep.Simulation``:
 
-- With a ``SocketHub`` it delegates to :func:`maxwelllink.em_solvers.meep.update_molecules`.
-- Without a hub it falls back to
-  :func:`maxwelllink.em_solvers.meep.update_molecules_no_socket`.
-- Meep's Courant factor must currently be 0.5; the helper checks for this
-  constraint on construction.
+- ``molecules``: a list of :class:`maxwelllink.Molecule` objects to couple to the EM solver.
+- ``time_units_fs``: the mapping between Meep time units and real time in femtoseconds. Meep uses
+  dimensionless units internally, so specifying this parameter is necessary to convert between Meep units and other units systems.
+- ``hub``: an optional :class:`maxwelllink.sockets.SocketHub` object for socket-based drivers.
 
-The module also defines a :class:`MeepUnits` adapter that converts between Meep
-units and atomic units. Conversion factors were validated against the TLS
-analytics checks in ``tests/test_tls/test_meep_2d_socket_tls1_relaxation.py`` and
-``tests/test_tls/test_meep_2d_tlsmolecule_n_relaxation.py``.
+.. note::
 
-When a full FDTD grid is unnecessary, :class:`maxwelllink.SingleModeSimulation`
+   With a ``SocketHub`` a step function :func:`maxwelllink.em_solvers.meep.update_molecules` is inserted in Meep FDTD simulation; 
+   without a hub the step function falls back to :func:`maxwelllink.em_solvers.meep.update_molecules_no_socket`.
+
+``SingleModeSimulation``, defined in :class:`maxwelllink.SingleModeSimulation`,
 approximates the field as a single damped harmonic oscillator evolving in atomic
 units. It supports the same socket and non-socket molecule interfaces, making it
 useful for rapid prototyping or unit tests without launching Meep.
 
+
+Molecular drivers
+---------------------
+
+While ``Molecule`` defines molecular locations and size in EM grid, a set of molecular 
+drivers implement the actual dynamics. All Python-based drivers inherit from :class:`maxwelllink.mxl_drivers.python.models.DummyModel`
+and use the unified API when communicating with the hub. The following Python drivers ship with MaxwellLink:
+
+- **Two-level system (tls)**: a lightweight quantum model that propagates
+  the von Neumann equation for a TLS.
+- **QuTiP model Hamiltonians (qutip)**: an interface to user-defined Hamiltonians
+  using the QuTiP package :cite:`XXX`.
+- **Psi4 RT-TDDFT (rttddft)**: real-time time-dependent density functional theory
+  implemented using Psi4 :cite:`XXX`.
+- **Psi4 RT-Ehrenfest dynamics (rtehrenfest)**: RT-TDDFT with nuclear Ehrenfest
+  dynamics using Psi4 :cite:`XXX`.
+- **ASE molecular mechanics (ase)**: first-principles Born-Oppenheimer molecular dynamics using
+  the Atomic Simulation Environment (ASE) :cite:`XXX`.
+
+An additional C++ LAMMPS driver implements ``fix mxl``, which communicates with the hub
+using the same socket protocol. See :doc:`installation` for instructions on building
+the LAMMPS binary with MaxwellLink support.
+
 MPI awareness
 -------------
 
-Meep simulations can be launched under MPI without extra code. Only the master
-rank (rank 0) interacts with sockets; field integrals and returned amplitudes
-are broadcast to the other ranks via ``mpi4py``. The helper methods
-``am_master`` and ``mpi_bcast_from_master`` ensure that molecule IDs and hub
-state remain in sync across ranks.
+EM solvers, such as Meep FDTD, can be launched under MPI. MaxwellLink is compatible with MPI, 
+allowing for distributed simulations. Only the master
+rank (rank 0) interacts with sockets; field integrals and returned molecule responses
+are broadcast to the other ranks via ``mpi4py``.
 
 Resilience and checkpoints
 --------------------------

@@ -2,56 +2,99 @@ ASE driver
 ==========
 
 The ASE driver embeds MaxwellLink in the `Atomic Simulation Environment
-<https://wiki.fysik.dtu.dk/ase/>`_, letting you reuse any ASE-compatible
-electronic structure calculator (Psi4, ORCA, DFTB+, …) while coupling to the EM
-field through effective forces.
+<https://wiki.fysik.dtu.dk/ase/>`_, enabling Born–Oppenheimer molecular dynamics
+with any ASE-compatible calculator. The implementation is provided by
+:class:`maxwelllink.mxl_drivers.python.models.ASEModel`.
 
 Requirements
 ------------
 
 - ``ase`` (install via ``conda install -c conda-forge ase``).
-- The desired calculator backends must be available on ``PATH`` or importable
-  (e.g. Psi4 or ORCA Python bindings).
+- The desired calculator backends (Psi4, ORCA, DFTB+, …) must be installed and
+  discoverable by ASE.
 
-Example command
----------------
+Usage
+-----
+
+Socket mode
+^^^^^^^^^^^
 
 .. code-block:: bash
 
-   mxl_driver.py --model ase --port 31415 \
+   mxl_driver --model ase --port 31415 \
      --param "atoms=${PWD}/tests/data/hcn.xyz, calculator=psi4, \
               calc_kwargs=method=b3lyp,basis=sto-3g, \
-              charges=[1.0,-1.0,0.0], thermostat=MaxwellBoltzmann(300 K)"
+              charges=[1.0 -1.0 0.0], n_substeps=5, temperature_K=300, \
+              recompute_charges=false"
 
-Key parameters
---------------
+Non-socket mode
+^^^^^^^^^^^^^^^
 
-- ``atoms`` – Path to an XYZ file or any format readable by ``ase.io.read``.
-- ``calculator`` – Name of the ASE calculator to wrap (``psi4``, ``orca``,
-  ``dftb`` …). MaxwellLink falls back to importing ``ase.calculators.<name>``.
-- ``calc_kwargs`` – Comma-separated keyword arguments passed to the calculator
-  constructor (strings, numbers, or lists—handled by the internal parser).
-- ``charges`` – Optional per-atom charges. When omitted, the driver can
-  recompute charges every step if the calculator exposes them.
-- ``thermostat`` – Notation for ASE thermostat initialisation (e.g.
-  ``MaxwellBoltzmann(300)``). Optional.
+.. code-block:: python
 
-Operation
----------
+   mxl.Molecule(
+       driver="ase",
+       driver_kwargs={
+           "atoms": "tests/data/hcn.xyz",
+           "calculator": "psi4",
+           "calc_kwargs": "method=b3lyp,basis=sto-3g",
+           "charges": "[1.0 -1.0 0.0]",
+           "n_substeps": 5,
+           "temperature_K": 300.0,
+       },
+       # ...
+   )
 
-- The driver integrates nuclear motion through ASE’s ``VelocityVerlet`` scheme.
-- External electric fields are converted from atomic units to ASE’s eV/Å forces
-  using the same conversion factors as the RT-TDDFT drivers.
-- The ``additional_data_history`` contains serialized snapshots (positions,
-  velocities, energies) returned by ``ASEModel._snapshot()``.
 
-Validation
+Parameters
 ----------
 
-``tests/test_ase/test_ase_psi4_bomd.py`` compares:
+.. list-table::
+   :header-rows: 1
 
-- MaxwellLink’s ``RTEhrenfestModel`` running with Psi4 forces.
-- The ASE driver using Psi4 in Born–Oppenheimer mode.
+   * - Name
+     - Description
+   * - ``atoms``
+     - ASE ``Atoms`` instance or path to a structure file readable by
+       ``ase.io.read`` (``.xyz``, ``.pdb`` …). Required.
+   * - ``calculator``
+     - Name of the ASE calculator to wrap (``psi4``, ``orca``, ``dftb`` …).
+       Default: ``psi4``.
+   * - ``calc_kwargs``
+     - Comma-separated ``key=value`` pairs (or a dict) forwarded to the
+       calculator constructor. Default: ``""``.
+   * - ``charges``
+     - Optional per-atom charges specified as a space-separated list in square
+       brackets, e.g. ``"[0.3 -0.3 0.0]"``. Default: ``None``.
+   * - ``recompute_charges``
+     - When ``True`` the driver queries the wrapped calculator for charges at
+       every step instead of using ``charges``. Default: ``False``.
+   * - ``n_substeps``
+     - Number of velocity-Verlet steps per MaxwellLink time step. Default: ``1``.
+   * - ``temperature_K``
+     - Initial temperature passed to ``MaxwellBoltzmannDistribution`` before
+       propagation. Default: ``0.0``.
+   * - ``verbose``
+     - When ``True`` print calculator setup and integration diagnostics.
+       Default: ``False``.
+   * - ``checkpoint``
+     - When ``True`` write positions/velocities to ``ase_checkpoint_id_<n>.npz``.
+       Default: ``False``.
+   * - ``restart``
+     - When ``True`` try to restore the most recent checkpoint on start-up.
+       Default: ``False``.
 
-The matching trajectories confirm that the ASE interface preserves the expected
-forces and unit conversions.
+Returned data
+-------------
+
+- ``time_au`` – Simulation time in atomic units.
+- ``temperature_K`` – Instantaneous temperature reported by ASE.
+
+Notes
+-----
+
+- Provide either ``charges`` or set ``recompute_charges=true``; the driver
+  raises an error if no charges are available.
+- Calculator-specific options can be supplied via ``calc_kwargs=...`` or as
+  additional ``key=value`` pairs in ``--param``; unrecognised tokens are
+  forwarded to the calculator constructor.

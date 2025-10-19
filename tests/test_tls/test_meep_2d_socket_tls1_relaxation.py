@@ -211,7 +211,6 @@ def test_2d_1tls_relaxation_matches_analytical_via_socket_v2(plotting=False):
         # one socket-backed molecule; time units 0.1 fs per Meep time
         molecule = mxl.Molecule(
             hub=hub,
-            resolution=resolution,
             center=mp.Vector3(0, 0, 0),
             size=mp.Vector3(1, 1, 1),
             sigma=0.1,

@@ -1,54 +1,148 @@
 RT-TDDFT-Ehrenfest driver
 =========================
 
-The RT-TDDFT-Ehrenfest driver extends the RT-TDDFT model with classical nuclear
-propagation using Ehrenfest or Born–Oppenheimer forces. It is implemented on top
-of the same Psi4 backend and shares most parameters with
-:doc:`rttddft <rttddft>`, adding controls for nuclear time stepping, stochastic
-thermostats, and partial charges.
+The RT-TDDFT-Ehrenfest driver extends :doc:`rttddft <rttddft>` with classical
+nuclear propagation using Ehrenfest or Born–Oppenheimer forces. It is provided
+by :class:`maxwelllink.mxl_drivers.python.models.RTEhrenfestModel`, which
+computes electronic dynamics with RT-TDDFT while integrating nuclear motion under
+mean-field electronic potential energy surfaces. This Python driver couples to
+EM solvers in both electronic and nuclear degrees of freedom.
 
 Requirements
 ------------
 
-- ``psi4`` (same as the RT-TDDFT driver).
-- Atomic masses, partial charges, or thermostat settings are optional and can be
-  provided through parameters.
+- ``psi4`` available in the driver environment.
+- Same structure requirements as the RT-TDDFT driver (XYZ file with charge and
+  multiplicity on the second line).
 
-Example command
----------------
+Usage
+-----
+
+Socket mode
+^^^^^^^^^^^
 
 .. code-block:: bash
 
-   mxl_driver.py --model rtehrenfest --port 31415 \
-     --param "molecule_xyz=${PWD}/tests/data/hcn.xyz, functional=b3lyp, \
+   mxl_driver --model rtehrenfest --port 31415 \
+     --param "molecule_xyz=${PWD}/tests/data/hcn.xyz, functional=B3LYP, \
               basis=sto-3g, dt_rttddft_au=0.04, force_type=ehrenfest, \
-              n_fock_per_nuc=1, n_elec_per_fock=10, \
-              partial_charges=[1.0,-1.0,0.0], checkpoint=false, restart=false"
+              n_fock_per_nuc=10, n_elec_per_fock=10, \
+              checkpoint=false, restart=false"
 
-Additional parameters
----------------------
+Non-socket mode
+^^^^^^^^^^^^^^^
 
-- ``force_type`` – ``ehrenfest`` for mean-field forces or ``bo`` to use
-  Born–Oppenheimer gradients (see the ASE comparison tests).
-- ``n_fock_per_nuc`` / ``n_elec_per_fock`` – Control the nested propagation loop
-  (how many electronic steps per nuclear move).
-- ``mass_amu`` – Override Psi4’s default atomic masses.
-- ``friction_gamma_au`` / ``temperature_K`` / ``rng_seed`` – Enable Langevin
-  thermostats.
-- ``partial_charges`` – Optional per-atom charges for coupling to external
-  fields.
-- ``fix_nuclei_indices`` – Freeze selected nuclei.
+.. code-block:: python
 
-Validation
+   mxl.Molecule(
+       driver="rtehrenfest",
+       driver_kwargs={
+           "molecule_xyz": "tests/data/hcn.xyz",
+           "functional": "B3LYP",
+           "basis": "sto-3g",
+           "dt_rttddft_au": 0.04,
+           "force_type": "bo",
+           "n_fock_per_nuc": 10,
+           "n_elec_per_fock": 10,
+           "partial_charges": [1.0, -1.0, 0.0],
+       },
+       # ...
+   )
+
+Parameters
 ----------
 
-``tests/test_ase/test_ase_psi4_bomd.py`` uses the driver in two configurations
-and compares the resulting trajectories to ASE/PSI4 BOMD runs:
+.. list-table::
+   :header-rows: 1
 
-- With ``force_type="bo"`` and a constant external field to match ASE’s BOMD
-  driver.
-- With ``force_type="ehrenfest"`` and zero external field, validating the use of
-  Ehrenfest gradients.
+   * - Name
+     - Description
+   * - ``engine``
+     - Computational backend. Currently only ``psi4`` is supported. Default:
+       ``psi4``.
+   * - ``molecule_xyz``
+     - Path to the geometry file (charge/multiplicity on the second line).
+       Required.
+   * - ``functional``
+     - Psi4 functional label. Default: ``SCF``.
+   * - ``basis``
+     - Psi4 basis set label. Default: ``sto-3g``.
+   * - ``dt_rttddft_au``
+     - Electronic time step in atomic units. Default: ``0.04``.
+   * - ``delta_kick_au``
+     - Initial delta-kick amplitude (a.u.). Default: ``0.0``.
+   * - ``delta_kick_direction``
+     - Axes for the delta-kick (``x``, ``y``, ``z``, ``xy``, ``xz``, ``yz``,
+       ``xyz``). Default: ``xyz``.
+   * - ``memory``
+     - Psi4 memory allocation string. Default: ``8GB``.
+   * - ``num_threads``
+     - CPU threads assigned to Psi4. Default: ``1``.
+   * - ``electron_propagation``
+     - Electronic propagator: ``etrs`` or ``pc``. Default: ``etrs``.
+   * - ``threshold_pc``
+     - Predictor–corrector convergence threshold (used when
+       ``electron_propagation=pc``). Default: ``1e-6``.
+   * - ``remove_permanent_dipole``
+     - When ``True`` subtract the permanent dipole from the coupling term.
+       Default: ``False``.
+   * - ``dft_grid_name``
+     - Psi4 quadrature grid label. Default: ``SG0``.
+   * - ``dft_radial_points`` / ``dft_spherical_points``
+     - Grid sizes (negative values fall back to Psi4 defaults). Defaults:
+       ``-1``.
+   * - ``force_type``
+     - ``ehrenfest`` for mean-field forces or ``bo`` for Born–Oppenheimer
+       gradients. Default: ``ehrenfest``.
+   * - ``n_fock_per_nuc``
+     - Number of Fock builds per nuclear update. Default: ``10``.
+   * - ``n_elec_per_fock``
+     - Number of electronic steps per Fock build. Default: ``10``.
+   * - ``mass_amu``
+     - Optional per-atom masses (amu). Default: ``None`` (Psi4 values).
+   * - ``friction_gamma_au``
+     - Langevin friction coefficient in atomic units. Default: ``0.0``.
+   * - ``temperature_K``
+     - Target temperature for Langevin dynamics. Default: ``None`` (disabled).
+   * - ``rng_seed``
+     - Random seed for the Langevin thermostat. Default: ``1234``.
+   * - ``partial_charges``
+     - Optional per-atom charges for coupling to external fields. Default:
+       ``None``.
+   * - ``homo_to_lumo``
+     - When ``True`` promotes one alpha electron from HOMO to LUMO at
+       initialization. Default: ``False``.
+   * - ``fix_nuclei_indices``
+     - Indices of nuclei to freeze during propagation. Default: ``None``.
+   * - ``checkpoint``
+     - When ``True`` write ``rttddft_checkpoint_id_<n>.npy`` snapshots for later
+       recovery. Default: ``False``.
+   * - ``restart``
+     - When ``True`` attempt to resume from the latest checkpoint. Default:
+       ``False``.
+   * - ``verbose``
+     - When ``True`` print propagation diagnostics and dipole traces.
+       Default: ``False``.
 
-These tests demonstrate how MaxwellLink’s Ehrenfest implementation reproduces
-standard ASE dynamics, giving confidence when coupling to FDTD simulations.
+.. note::
+
+   ``partial_charges`` should only be provided when ``force_type="bo"``. When defining 
+   this parameter in the socket mode (command line), please always use ``"[1.0 -1.0 0.0]"`` 
+   (no comma separating values) to ensure correct parsing. When ``force_type="ehrenfest"``, the driver
+   computes forces from the Ehrenfest mean-field potential and ignores ``partial_charges``.
+
+Returned data
+-------------
+
+- ``time_au`` – Simulation clock in atomic units.
+- ``energy_au`` – Total energy including nuclear and electronic contributions.
+- ``mu_x_au``, ``mu_y_au``, ``mu_z_au`` – Instantaneous dipole components.
+
+Notes
+-----
+
+- The driver combines electronic and nuclear contributions when returning
+  :math:`\mathrm{d}\boldsymbol{\mu}/\mathrm{d}t` to MaxwellLink.
+- Regression test
+  ``tests/test_ase/test_ase_psi4_bomd.py`` benchmarks both ``force_type="bo"``
+  and ``force_type="ehrenfest"`` against ASE/Psi4 BOMD runs.

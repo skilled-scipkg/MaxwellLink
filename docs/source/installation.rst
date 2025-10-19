@@ -13,14 +13,14 @@ Prerequisites
 - C/Fortran toolchains supplied by your platform if you plan to build drivers
   such as LAMMPS from source.
 
-Create an environment
+Create a conda environment
 ---------------------
 
 .. code-block:: bash
 
-   # Create a fresh environment and install Meep w/ MPI support
+   # Create a fresh conda environment for MaxwellLink
    CONDA_ENV="mxl"
-   conda create -n "$CONDA_ENV" -c conda-forge pymeep="*=mpi_mpich_*" python=3.10
+   conda create -n "$CONDA_ENV" python=3.13
    conda activate "$CONDA_ENV"
 
 Install MaxwellLink from source
@@ -35,10 +35,23 @@ Install MaxwellLink from source
 This installs the Python package together with the ``mxl_driver`` console entry
 point used to launch molecular drivers.
 
+Optional EM solvers
+-----------------------
+
+Currently, MaxwellLink ships with Meep and a simple single-mode cavity solver. While the built-in
+single-mode cavity is mainly for prototyping and debugging, Meep is a full-featured FDTD package
+suitable for production simulations. One can install Meep with MPI support via conda:
+
+.. code-block:: bash
+
+   conda install -n "$CONDA_ENV" -c conda-forge pymeep="*=mpi_mpich_*"
+
 Optional driver dependencies
 ----------------------------
 
-Install any drivers that you want to use from the command line. Each driver can
+A two-level system (TLS) model ships with MaxwellLink and does not require extra packages.
+Beyond this lightweight driver, MaxwellLink supports several molecular drivers that depend on
+third-party packages. Install any molecular drivers below that you want to use from the command line. Each molecular driver can
 be pulled into the same conda environment.
 
 .. code-block:: bash
@@ -55,8 +68,7 @@ be pulled into the same conda environment.
    # LAMMPS driver with fix mxl (installs a custom binary lmp_mxl)
    mxl_install_lammps
 
-The TLS model ships with MaxwellLink and does not require extra packages. The
-LAMMPS helper downloads, patches, and builds a LAMMPS executable that contains
+The LAMMPS helper downloads, patches, and builds a LAMMPS executable that contains
 ``fix mxl``; alternatively copy the provided ``fix_maxwelllink.*`` sources into
 your existing LAMMPS build and recompile.
 
@@ -64,13 +76,11 @@ Verify the installation
 -----------------------
 
 After installing the desired drivers, run the core regression tests to confirm
-that the coupling between Meep and the drivers works in your environment. Test
-selection relies on the markers defined in ``pyproject.toml`` (``core``,
-``optional``, ``slow``), so prefer ``-m`` over name-based ``-k`` filtering.
+that the coupling between EM solvers and the molecular drivers works in your environment.
 
 .. code-block:: bash
 
-   # Run the fast tests (TLS socket/no-socket paths)
+   # Run the fast tests (TLS under socket/non-socket modes)
    pytest -m core -v
 
    # Run the optional Psi4 and QuTiP tests when the dependencies are available

@@ -395,8 +395,8 @@ class ASEModel(DummyModel):
     def __init__(
         self,
         atoms: Union[str, Atoms],
-        calculator: str = "xtb",
-        calc_kwargs: Optional[dict] = None,
+        calculator: str = "psi4",
+        calc_kwargs: str = "",
         charges: Optional[Sequence[float]] = None,
         recompute_charges: bool = False,
         n_substeps: int = 1,
@@ -412,10 +412,10 @@ class ASEModel(DummyModel):
         atoms : ase.Atoms or str
             Either an ASE ``Atoms`` object or a path to a structure file (e.g., ``.xyz``)
             readable by ASE.
-        calculator : str, default: 'xtb'
+        calculator : str, default: 'psi4'
             Name of ASE calculator (``'psi4'``, ``'dftb'``, ``'orca'``, ...).
-        calc_kwargs : dict or None, optional
-            Dict of kwargs passed to the calculator constructor.
+        calc_kwargs : str, optional
+            String of kwargs passed to the calculator constructor.
         charges : str or sequence of float or None, optional
             A string like ``"[-1.0 1.0]"`` representing an array of per-atom charges
             (in :math:`\\lvert e \\rvert`), separated by **space** (not **comma**).

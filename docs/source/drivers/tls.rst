@@ -1,72 +1,90 @@
 TLS driver
 ==========
 
-The TLS driver implements a closed two-level system with a single transition
-frequency and dipole moment. It is lightweight, ships with MaxwellLink, and is
-used extensively throughout the regression tests to validate the EM coupling.
+The TLS driver implements a minimal closed two-level system with a single
+transition frequency and dipole moment. It is provided by
+:class:`maxwelllink.mxl_drivers.python.models.TLSModel` and ships with
+MaxwellLink for lightweight regression tests and benchmark scenarios.
 
 Requirements
 ------------
 
-- No third-party packages are required; the driver is installed with
-  MaxwellLink.
-- Optional ``scipy`` (already a transitive dependency) is used to build the
-  short-time propagator.
+- No additional packages are required beyond MaxwellLink’s dependencies.
+- ``scipy`` (already bundled) is used for the short-time propagator.
 
-Command-line usage
-------------------
+Usage
+-----
+
+Socket mode
+^^^^^^^^^^^
 
 .. code-block:: bash
 
-   mxl_driver.py --model tls --port 31415 \
+   mxl_driver --model tls --port 31415 \
      --param "omega=0.242, mu12=187, orientation=2, pe_initial=1e-4, \
-              checkpoint=false, restart=false, verbose=false"
+              checkpoint=false, restart=false"
 
-Parameters passed through ``--param``:
+Non-socket mode
+^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   mxl.Molecule(
+       driver="tls",
+       driver_kwargs={
+           "omega": 0.242,
+           "mu12": 187.0,
+           "orientation": 2,
+           "pe_initial": 1e-4,
+       },
+       # ...
+   )
+
+
+Parameters
+----------
 
 .. list-table::
    :header-rows: 1
 
    * - Name
      - Description
-     - Default
    * - ``omega``
-     - Transition frequency (a.u.), equals 1.0 in Meep units when
-       ``time_units_fs=0.1``
-     - ``0.242``
+     - Transition frequency in atomic units. Default: ``2.4188843e-1``, corresponding to ``1.0`` in
+       Meep units when ``time_units_fs=0.1``.
    * - ``mu12``
-     - Dipole moment (a.u.); scales the emitted source amplitude
-     - ``187``
+     - Transition dipole moment in atomic units; scaling with the emitted source
+       amplitude. Default: ``1.870819866e2``, corresponding to ``0.1`` in
+       Meep units when ``time_units_fs=0.1``.
    * - ``orientation``
-     - Dipole orientation: ``0`` (``Ex``), ``1`` (``Ey``), ``2`` (``Ez``)
-     - ``2``
+     - Dipole orientation: ``0`` couples to ``E_x``, ``1`` to ``E_y``, ``2`` to
+       ``E_z``. Default: ``2``.
    * - ``pe_initial``
-     - Initial excited-state population
-     - ``0.0``
+     - Initial excited-state population. Default: ``0.0``.
    * - ``checkpoint``
-     - Enable writing ``tls_checkpoint_id_<n>.npz`` after each step
-     - ``false``
+     - When ``True`` write ``tls_checkpoint_id_<n>.npz`` after each step. Default:
+       ``False``.
    * - ``restart``
-     - Resume from an existing checkpoint instead of the initial state
-     - ``false``
+     - When ``True`` resume from the latest checkpoint if present. Default:
+       ``False``.
    * - ``verbose``
-     - Print field values and density-matrix diagnostics each step
-     - ``false``
+     - When ``True`` print field values and density-matrix diagnostics each step.
+       Default: ``False``.
 
-Outputs
--------
+Returned data
+-------------
 
-- The driver reports the excited-state population ``Pe`` and current simulation
-  time in the ``extra`` payload. When coupled to a molecule you can access the
-  history through ``molecule.additional_data_history``.
-- The analytical decay comparison used in
-  ``tests/test_tls/test_meep_2d_socket_tls1_relaxation.py`` is a good validation
-  scenario for new environments.
+- ``time_au`` – Simulation time in atomic units.
+- ``energy_au`` – Instantaneous TLS energy.
+- ``mu_x_au``, ``mu_y_au``, ``mu_z_au`` – Dipole vector components.
+- ``Pe`` / ``Pg`` – Excited- and ground-state populations.
+- ``Pge_real`` / ``Pge_imag`` – Real and imaginary parts of the coherence.
 
-In-process usage
-----------------
+Notes
+-----
 
-The same model can run without sockets by instantiating it via
-``Molecule(driver="tls", driver_kwargs={...})``. This path is useful for unit
-tests or when the EM solver and molecular model run in the same MPI task (see
-``tests/test_tls/test_meep_2d_tlsmolecule_n_relaxation.py`` for an example).
+- The driver exposes a deterministic analytic evolution; see
+  ``tests/test_tls/test_meep_2d_socket_tls1_relaxation.py`` for reference
+  output.
+- The QuTiP driver replicates this model when ``preset=tls``; use the TLS driver
+  for the lightest-weight option.
