@@ -18,10 +18,10 @@
 
 ## Key Features
 
+- **Embracing state-of-the-art ecosystems** in both computational electrodynamics and quantum chemistry, extending the boundary of light-matter simulations.
 - **Unified Python interfaces** for socket-connected and embedded molecular drivers in light-matter simulations.
-- **Heterogeneous molecular theories** including TLS, QuTiP model Hamiltonians, Psi4 RT-TDDFT/Ehrenfest, ASE classical dynamics, and LAMMPS via `fix mxl`.
-- **Resilient SocketHub** with automatic reconnection, checkpoint/restart workflows, and MPI-aware communication.
-- **Extensible wrappers** to add custom EM solvers or molecular drivers with minimal efforts.
+- **Heterogeneous molecular theories** including TLS, QuTiP model Hamiltonians, Psi4 RT-TDDFT/Ehrenfest, ASE classical dynamics, and LAMMPS via `fix mxl`, all in one EM simulation.
+- **Extensible code structure** to add custom EM solvers or molecular drivers with minimal efforts.
 
 ## Quick Start
 
