@@ -64,6 +64,17 @@ class MoleculeSingleModeWrapper(MoleculeDummyWrapper):
     def __init__(self, molecule: Molecule, dt_au: float, axis: Union[int, str]):
         """
         Initialize the SingleMode molecule wrapper.
+
+        Parameters
+        ----------
+        molecule : Molecule
+            The molecule to wrap.
+        dt_au : float
+            Time step in atomic units.
+        axis : int or str
+            Axis of the molecule to be coupled to the cavity mode. Accepted values: ``0``, ``1``, ``2`` or
+            ``"x"``, ``"y"``, ``"z"`` (case-insensitive).
+
         """
         super().__init__(molecule=molecule)
         self.dt_au = float(dt_au)
@@ -93,6 +104,11 @@ class MoleculeSingleModeWrapper(MoleculeDummyWrapper):
     def append_additional_data(self, time_au: float):
         """
         Store additional molecular data supplied by non-socket drivers.
+
+        Parameters
+        ----------
+        time_au : float
+            Current simulation time in atomic units.
         """
 
         extra = {}
@@ -242,6 +258,19 @@ class SingleModeSimulation(DummyEMSimulation):
     # Core helpers
     # ------------------------------------------------------------------
     def _evaluate_drive(self, time_au: float) -> float:
+        """
+        Evaluate the drive term at the given time.
+        
+        Parameters
+        ----------
+        time_au : float
+            Current simulation time in atomic units.
+
+        Returns
+        -------
+        float
+            The evaluated drive term.
+        """
         try:
             return float(self.drive(time_au))
         except TypeError:
@@ -259,6 +288,19 @@ class SingleModeSimulation(DummyEMSimulation):
             raise RuntimeError("Timeout waiting for socket molecules to bind.")
 
     def _collect_socket_responses(self, efield_vec: Sequence[float]) -> Dict[int, dict]:
+        """
+        Send requests to socket molecules and collect their responses.
+        
+        Parameters
+        ----------
+        efield_vec : array-like of float, shape (3,)
+            Effective electric field vector in atomic units.
+
+        Returns
+        -------
+        dict of int to dict
+            Mapping from molecule IDs to their response payloads.
+        """
         requests = {
             w.molecule_id: {
                 "efield_au": efield_vec,
@@ -275,6 +317,23 @@ class SingleModeSimulation(DummyEMSimulation):
         return responses
 
     def _calc_acceleration(self, time: float, amp_sum: float, qc: float) -> float:
+        """
+        Calculate the cavity mode acceleration at the given time.
+
+        Parameters
+        ----------
+        time : float
+            Current simulation time in atomic units.
+        amp_sum : float
+            Sum of molecular source amplitudes along the coupling axis.
+        qc : float
+            Current cavity field amplitude.
+        
+        Returns
+        -------
+        float
+            The calculated acceleration.
+        """
         drive_val = self._evaluate_drive(time)
         acceleration = (
             drive_val + self.coupling_strength * amp_sum - (self.frequency**2) * qc
@@ -282,11 +341,39 @@ class SingleModeSimulation(DummyEMSimulation):
         return acceleration
 
     def _calc_effective_efield(self, pc: float):
+        """
+        Calculate the effective electric field vector for the cavity mode.
+
+        Parameters
+        ----------
+        pc : float
+            Current cavity mode velocity.
+
+        Returns
+        -------
+        numpy.ndarray of float, shape (3,)
+            Effective electric field vector in atomic units.
+        """
         efield_vec = np.array([0.0, 0.0, 0.0], dtype=float)
         efield_vec[self.axis] = -self.coupling_strength * pc
         return efield_vec
 
     def _step_molecules(self, efield_vec: Sequence[float], time_au: float):
+        """
+        Propagate all molecules for one EM step and collect their source amplitudes.
+        
+        Parameters
+        ----------
+        efield_vec : array-like of float, shape (3,)
+            Effective electric field vector in atomic units.
+        time_au : float
+            Current simulation time in atomic units.    
+        
+        Returns
+        -------
+        float
+            Sum of molecular source amplitudes along the coupling axis.
+        """
         # Non-socket molecules
         for wrapper in self.non_socket_wrappers:
             wrapper.propagate(efield_vec)
