@@ -280,12 +280,12 @@ class SingleModeSimulation(DummyEMSimulation):
             drive_val + self.coupling_strength * amp_sum - (self.frequency**2) * qc
         )
         return acceleration
-    
+
     def _calc_effective_efield(self, pc: float):
         efield_vec = np.array([0.0, 0.0, 0.0], dtype=float)
         efield_vec[self.axis] = -self.coupling_strength * pc
         return efield_vec
-    
+
     def _step_molecules(self, efield_vec: Sequence[float], time_au: float):
         # Non-socket molecules
         for wrapper in self.non_socket_wrappers:
