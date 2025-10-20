@@ -1006,3 +1006,7 @@ class MeepSimulation(mp.Simulation):
                     0, update_molecules_no_socket(self.molecules, self.sources)
                 )
         super().run(*step_funcs, **kwargs)
+
+        # after run, stop and clean up the hub
+        if self.socket_hub is not None:
+            self.socket_hub.stop()
