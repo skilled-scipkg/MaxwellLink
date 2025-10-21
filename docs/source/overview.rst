@@ -43,7 +43,7 @@ overview of the code structure, design principles, and how to extend the framewo
    :maxdepth: 1
    :caption: Reference
 
-   api/maxwelllink
+   api/modules
 
 Citation
 --------

@@ -25,7 +25,7 @@ the source amplitude vector for a quantum dynamics model.
 
 
 # helper function to determine whether this processor is the MPI master using mpi4py
-def am_master():
+def _am_master():
     """
     Return True if this process is the MPI master rank (rank 0), otherwise False.
 
@@ -73,7 +73,7 @@ GETSOURCE = GETFORCE
 SOURCEREADY = FORCEREADY
 
 
-class SocketClosed(OSError):
+class _SocketClosed(OSError):
     pass
 
 
@@ -102,7 +102,7 @@ def _pad12(msg: bytes) -> bytes:
     return msg.ljust(HEADER_LEN, b" ")
 
 
-def send_msg(sock: socket.socket, msg: bytes) -> None:
+def _send_msg(sock: socket.socket, msg: bytes) -> None:
     """
     Send a 12-byte ASCII header (space-padded).
 
@@ -135,7 +135,7 @@ def _recvall(sock: socket.socket, n: int) -> bytes:
 
     Raises
     ------
-    SocketClosed
+    _SocketClosed
         If the peer closes the connection before all bytes are received.
     """
 
@@ -143,12 +143,12 @@ def _recvall(sock: socket.socket, n: int) -> bytes:
     while len(buf) < n:
         chunk = sock.recv(n - len(buf))
         if not chunk:
-            raise SocketClosed("Peer closed")
+            raise _SocketClosed("Peer closed")
         buf.extend(chunk)
     return bytes(buf)
 
 
-def recv_msg(sock: socket.socket) -> bytes:
+def _recv_msg(sock: socket.socket) -> bytes:
     """
     Receive a 12-byte ASCII header and strip trailing spaces.
 
@@ -167,7 +167,7 @@ def recv_msg(sock: socket.socket) -> bytes:
     return hdr.rstrip()
 
 
-def send_array(sock: socket.socket, arr, dtype) -> None:
+def _send_array(sock: socket.socket, arr, dtype) -> None:
     """
     Send a NumPy array over a socket using a contiguous C-order memory view.
 
@@ -185,7 +185,7 @@ def send_array(sock: socket.socket, arr, dtype) -> None:
     sock.sendall(memoryview(a).cast("B"))
 
 
-def recv_array(sock: socket.socket, shape, dtype):
+def _recv_array(sock: socket.socket, shape, dtype):
     """
     Receive a NumPy array of a given shape and dtype from a socket.
 
@@ -205,7 +205,7 @@ def recv_array(sock: socket.socket, shape, dtype):
 
     Raises
     ------
-    SocketClosed
+    _SocketClosed
         If the peer closes the connection during the transfer.
     """
 
@@ -216,12 +216,12 @@ def recv_array(sock: socket.socket, shape, dtype):
     while got < need:
         r = sock.recv_into(mv[got:], need - got)
         if r == 0:
-            raise SocketClosed("Peer closed")
+            raise _SocketClosed("Peer closed")
         got += r
     return out
 
 
-def send_int(sock: socket.socket, x: int) -> None:
+def _send_int(sock: socket.socket, x: int) -> None:
     """
     Send a 32-bit little-endian integer.
 
@@ -236,7 +236,7 @@ def send_int(sock: socket.socket, x: int) -> None:
     sock.sendall(_INT32.pack(int(x)))
 
 
-def recv_int(sock: socket.socket) -> int:
+def _recv_int(sock: socket.socket) -> int:
     """
     Receive a 32-bit little-endian integer.
 
@@ -252,7 +252,7 @@ def recv_int(sock: socket.socket) -> int:
 
     Raises
     ------
-    SocketClosed
+    _SocketClosed
         If the peer closes the connection during the transfer.
     """
 
@@ -262,12 +262,12 @@ def recv_int(sock: socket.socket) -> int:
     while got < _INT32.size:
         r = sock.recv_into(mv[got:], _INT32.size - got)
         if r == 0:
-            raise SocketClosed("Peer closed")
+            raise _SocketClosed("Peer closed")
         got += r
     return _INT32.unpack(buf)[0]
 
 
-def send_bytes(sock: socket.socket, b: bytes) -> None:
+def _send_bytes(sock: socket.socket, b: bytes) -> None:
     """
     Send a length-prefixed byte string.
 
@@ -279,12 +279,12 @@ def send_bytes(sock: socket.socket, b: bytes) -> None:
         Byte string to send. The length is sent first as a 32-bit integer.
     """
 
-    send_int(sock, len(b))
+    _send_int(sock, len(b))
     if len(b):
         sock.sendall(b)
 
 
-def recv_bytes(sock: socket.socket) -> bytes:
+def _recv_bytes(sock: socket.socket) -> bytes:
     """
     Receive a length-prefixed byte string.
 
@@ -299,11 +299,11 @@ def recv_bytes(sock: socket.socket) -> bytes:
         The received byte string (may be empty).
     """
 
-    n = recv_int(sock)
+    n = _recv_int(sock)
     return _recvall(sock, n) if n else b""
 
 
-def recv_posdata(sock: socket.socket):
+def _recv_posdata(sock: socket.socket):
     """
     Read a POSDATA / FIELDDATA block from the socket.
 
@@ -316,14 +316,14 @@ def recv_posdata(sock: socket.socket):
         - ``xyz`` : ``(nat, 3)`` ndarray of positions (or effective field payload).
     """
 
-    cell = recv_array(sock, (3, 3), DT_FLOAT).T.copy()
-    icell = recv_array(sock, (3, 3), DT_FLOAT).T.copy()
-    nat = recv_int(sock)
-    xyz = recv_array(sock, (nat, 3), DT_FLOAT)
+    cell = _recv_array(sock, (3, 3), DT_FLOAT).T.copy()
+    icell = _recv_array(sock, (3, 3), DT_FLOAT).T.copy()
+    nat = _recv_int(sock)
+    xyz = _recv_array(sock, (nat, 3), DT_FLOAT)
     return cell, icell, xyz
 
 
-def send_force_ready(
+def _send_force_ready(
     sock: socket.socket,
     energy_ha: float,
     forces_Nx3_ha_per_bohr,
@@ -347,21 +347,21 @@ def send_force_ready(
         Extra payload as bytes (length-prefixed), e.g., JSON metadata.
     """
 
-    send_msg(sock, FORCEREADY)
-    send_array(sock, np.array([energy_ha], dtype=DT_FLOAT), DT_FLOAT)
+    _send_msg(sock, FORCEREADY)
+    _send_array(sock, np.array([energy_ha], dtype=DT_FLOAT), DT_FLOAT)
     forces = np.asarray(forces_Nx3_ha_per_bohr, dtype=DT_FLOAT)
     assert forces.ndim == 2 and forces.shape[1] == 3
-    send_int(sock, forces.shape[0])
-    send_array(sock, forces, DT_FLOAT)
-    send_array(sock, np.asarray(virial_3x3_ha, dtype=DT_FLOAT).T, DT_FLOAT)
-    send_bytes(sock, more)
+    _send_int(sock, forces.shape[0])
+    _send_array(sock, forces, DT_FLOAT)
+    _send_array(sock, np.asarray(virial_3x3_ha, dtype=DT_FLOAT).T, DT_FLOAT)
+    _send_bytes(sock, more)
 
 
 # the above functions can be also obtained from maxwelllink.sockets,
 # but we copy them here to avoid circular imports.
 
 
-def read_value(s):
+def _read_value(s):
     """
     Attempt to parse a string as ``int`` or ``float``; fall back to string/boolean.
 
@@ -389,7 +389,7 @@ def read_value(s):
     return s
 
 
-def read_args_kwargs(input_str):
+def _read_args_kwargs(input_str):
     """
     Parse a comma-separated string into positional and keyword arguments.
 
@@ -412,9 +412,9 @@ def read_args_kwargs(input_str):
         token = token.strip()
         if "=" in token:
             key, value = token.split("=", 1)
-            kwargs[key.strip()] = read_value(value)
+            kwargs[key.strip()] = _read_value(value)
         elif len(token) > 0:
-            args.append(read_value(token))
+            args.append(_read_value(token))
     return args, kwargs
 
 
@@ -474,7 +474,7 @@ def run_driver(
 
     while True:
         try:
-            msg = recv_msg(sock)
+            msg = _recv_msg(sock)
         except Exception:
             # Treat EOF/timeouts during normal shutdown as clean exit
             break
@@ -482,16 +482,16 @@ def run_driver(
         if msg == STATUS:
             # Server is polling; we must reply with our state.
             if not initialized:
-                send_msg(sock, NEEDINIT)
+                _send_msg(sock, NEEDINIT)
             elif have_result:
-                send_msg(sock, HAVEDATA)
+                _send_msg(sock, HAVEDATA)
             else:
-                send_msg(sock, READY)
+                _send_msg(sock, READY)
 
         elif msg == INIT:
             # Server sends INIT after we replied NEEDINIT
-            molid = recv_int(sock)
-            init_json = json.loads(recv_bytes(sock).decode("utf-8") or "{}")
+            molid = _recv_int(sock)
+            init_json = json.loads(_recv_bytes(sock).decode("utf-8") or "{}")
             dt_au = float(init_json.get("dt_au", 0.0))
             print("[initialization] Time step in atomic units:", dt_au)
             print("[initialization] Assigned a molecular ID:", molid)
@@ -504,7 +504,7 @@ def run_driver(
         elif msg == FIELDDATA or msg == b"POSDATA":
             # One step of data from server: treat "positions" as the E-field vector in a.u.
             # This is to mirror i-pi's existing socket interface.
-            cell, icell, xyz = recv_posdata(sock)
+            cell, icell, xyz = _recv_posdata(sock)
             # effective [Ex, Ey, Ez] (a.u.) for this molecule
             E = xyz[0]
             # Stage the step (no commit)
@@ -521,7 +521,7 @@ def run_driver(
             else:
                 pending_amp = driver.commit_step()
                 additional_data = driver.append_additional_data()
-            send_force_ready(
+            _send_force_ready(
                 sock,
                 energy_ha=0.0,
                 forces_Nx3_ha_per_bohr=pending_amp.reshape(1, 3),
@@ -539,7 +539,7 @@ def run_driver(
         elif msg == STOP:
             # Acknowledge and leave gracefully
             try:
-                send_msg(sock, BYE)
+                _send_msg(sock, BYE)
             finally:
                 print("Received STOP, exiting")
                 break
@@ -614,7 +614,7 @@ def mxl_driver_main():
 
     args = parser.parse_args()
 
-    driver_args, driver_kwargs = read_args_kwargs(args.param)
+    driver_args, driver_kwargs = _read_args_kwargs(args.param)
 
     if args.model in __drivers__:
         try:
@@ -700,7 +700,7 @@ def launch_driver(
         The process handle on the master rank, otherwise ``None``.
     """
 
-    if am_master():
+    if _am_master():
         print(f"Launching driver with command: mxl_driver.py {command}")
         # launch the external driver (client)
         driver_argv = shlex.split(shutil.which("mxl_driver.py") + " " + command)
@@ -724,7 +724,7 @@ def terminate_driver(proc, timeout=2.0):
         Seconds to wait for graceful shutdown before escalating.
     """
 
-    if proc is not None and am_master():
+    if proc is not None and _am_master():
         # Give it a moment to shut down naturally after the sim closes the socket
         try:
             proc.wait(timeout=timeout)

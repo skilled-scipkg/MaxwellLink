@@ -10,9 +10,9 @@ This module implements a lightweight socket protocol inspired by i-PI
   ``INIT``, ...
 - **EM aliases**: ``FIELDDATA``, ``GETSOURCE``, ``SOURCEREADY`` (1:1 mapping to
   ``POSDATA``/``GETFORCE``/``FORCEREADY``).
-- **Low-level helpers**: ``send_msg``, ``recv_msg``, ``send_array``/``recv_array``,
+- **Low-level helpers**: ``_send_msg``, ``_recv_msg``, ``_send_array``/``_recv_array``,
   etc.
-- **Exceptions**: ``SocketClosed``.
+- **Exceptions**: ``_SocketClosed``.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ DT_FLOAT = np.float64
 DT_INT = np.int32
 
 
-class SocketClosed(OSError):
+class _SocketClosed(OSError):
     """
     Exception raised when the peer closes the socket unexpectedly.
     """
@@ -81,7 +81,7 @@ def _pad12(msg: bytes) -> bytes:
     return msg.ljust(HEADER_LEN, b" ")
 
 
-def send_msg(sock: socket.socket, msg: bytes) -> None:
+def _send_msg(sock: socket.socket, msg: bytes) -> None:
     """
     Send a 12-byte ASCII header (space-padded).
 
@@ -114,21 +114,21 @@ def _recvall(sock: socket.socket, n: int) -> bytes:
 
     Raises
     ------
-    SocketClosed
+    _SocketClosed
         If the peer closes the connection before all bytes are received.
     """
 
-    """Read exactly n bytes or raise SocketClosed."""
+    """Read exactly n bytes or raise _SocketClosed."""
     buf = bytearray()
     while len(buf) < n:
         chunk = sock.recv(n - len(buf))
         if not chunk:
-            raise SocketClosed("Peer closed")
+            raise _SocketClosed("Peer closed")
         buf.extend(chunk)
     return bytes(buf)
 
 
-def recv_msg(sock: socket.socket) -> bytes:
+def _recv_msg(sock: socket.socket) -> bytes:
     """
     Receive a 12-byte ASCII header.
 
@@ -148,7 +148,7 @@ def recv_msg(sock: socket.socket) -> bytes:
     return hdr.rstrip()
 
 
-def send_array(sock: socket.socket, arr, dtype) -> None:
+def _send_array(sock: socket.socket, arr, dtype) -> None:
     """
     Send a NumPy array over a socket using a contiguous C-order memory view.
 
@@ -166,7 +166,7 @@ def send_array(sock: socket.socket, arr, dtype) -> None:
     sock.sendall(memoryview(a).cast("B"))
 
 
-def recv_array(sock: socket.socket, shape, dtype):
+def _recv_array(sock: socket.socket, shape, dtype):
     """
     Receive a NumPy array of a given shape and dtype from a socket.
 
@@ -186,7 +186,7 @@ def recv_array(sock: socket.socket, shape, dtype):
 
     Raises
     ------
-    SocketClosed
+    _SocketClosed
         If the peer closes the connection during the transfer.
     """
 
@@ -197,12 +197,12 @@ def recv_array(sock: socket.socket, shape, dtype):
     while got < need:
         r = sock.recv_into(mv[got:], need - got)
         if r == 0:
-            raise SocketClosed("Peer closed")
+            raise _SocketClosed("Peer closed")
         got += r
     return out
 
 
-def send_int(sock: socket.socket, x: int) -> None:
+def _send_int(sock: socket.socket, x: int) -> None:
     """
     Send a 32-bit little-endian integer.
 
@@ -217,7 +217,7 @@ def send_int(sock: socket.socket, x: int) -> None:
     sock.sendall(_INT32.pack(int(x)))
 
 
-def recv_int(sock: socket.socket) -> int:
+def _recv_int(sock: socket.socket) -> int:
     """
     Receive a 32-bit little-endian integer.
 
@@ -233,7 +233,7 @@ def recv_int(sock: socket.socket) -> int:
 
     Raises
     ------
-    SocketClosed
+    _SocketClosed
         If the peer closes the connection during the transfer.
     """
 
@@ -243,12 +243,12 @@ def recv_int(sock: socket.socket) -> int:
     while got < _INT32.size:
         r = sock.recv_into(mv[got:], _INT32.size - got)
         if r == 0:
-            raise SocketClosed("Peer closed")
+            raise _SocketClosed("Peer closed")
         got += r
     return _INT32.unpack(buf)[0]
 
 
-def send_bytes(sock: socket.socket, b: bytes) -> None:
+def _send_bytes(sock: socket.socket, b: bytes) -> None:
     """
     Send a length-prefixed byte string.
 
@@ -260,12 +260,12 @@ def send_bytes(sock: socket.socket, b: bytes) -> None:
         Byte string to send. The length is sent first as a 32-bit integer.
     """
 
-    send_int(sock, len(b))
+    _send_int(sock, len(b))
     if len(b):
         sock.sendall(b)
 
 
-def recv_bytes(sock: socket.socket) -> bytes:
+def _recv_bytes(sock: socket.socket) -> bytes:
     """
     Receive a length-prefixed byte string.
 
@@ -280,14 +280,14 @@ def recv_bytes(sock: socket.socket) -> bytes:
         The received byte string (may be empty).
     """
 
-    n = recv_int(sock)
+    n = _recv_int(sock)
     return _recvall(sock, n) if n else b""
 
 
 # -------- compound payloads (i-PI compatible) --------
 
 
-def send_posdata(
+def _send_posdata(
     sock: socket.socket, cell_3x3_bohr, invcell_3x3_per_bohr, positions_Nx3_bohr
 ):
     """
@@ -313,14 +313,14 @@ def send_posdata(
     assert np.asarray(invcell_3x3_per_bohr).shape == (3, 3)
     pos = np.asarray(positions_Nx3_bohr, dtype=DT_FLOAT)
     assert pos.ndim == 2 and pos.shape[1] == 3
-    send_msg(sock, POSDATA)
-    send_array(sock, np.asarray(cell_3x3_bohr, dtype=DT_FLOAT).T, DT_FLOAT)
-    send_array(sock, np.asarray(invcell_3x3_per_bohr, dtype=DT_FLOAT).T, DT_FLOAT)
-    send_int(sock, pos.shape[0])
-    send_array(sock, pos, DT_FLOAT)
+    _send_msg(sock, POSDATA)
+    _send_array(sock, np.asarray(cell_3x3_bohr, dtype=DT_FLOAT).T, DT_FLOAT)
+    _send_array(sock, np.asarray(invcell_3x3_per_bohr, dtype=DT_FLOAT).T, DT_FLOAT)
+    _send_int(sock, pos.shape[0])
+    _send_array(sock, pos, DT_FLOAT)
 
 
-def recv_posdata(sock: socket.socket):
+def _recv_posdata(sock: socket.socket):
     """
     Read a POSDATA/FIELDDATA block.
 
@@ -339,14 +339,14 @@ def recv_posdata(sock: socket.socket):
         - ``xyz`` : ``(nat, 3)`` ndarray of positions (or effective field payload).
     """
 
-    cell = recv_array(sock, (3, 3), DT_FLOAT).T.copy()
-    icell = recv_array(sock, (3, 3), DT_FLOAT).T.copy()
-    nat = recv_int(sock)
-    xyz = recv_array(sock, (nat, 3), DT_FLOAT)
+    cell = _recv_array(sock, (3, 3), DT_FLOAT).T.copy()
+    icell = _recv_array(sock, (3, 3), DT_FLOAT).T.copy()
+    nat = _recv_int(sock)
+    xyz = _recv_array(sock, (nat, 3), DT_FLOAT)
     return cell, icell, xyz
 
 
-def send_force_ready(
+def _send_force_ready(
     sock: socket.socket,
     energy_ha: float,
     forces_Nx3_ha_per_bohr,
@@ -370,17 +370,17 @@ def send_force_ready(
         Extra payload (length-prefixed), e.g., JSON metadata.
     """
 
-    send_msg(sock, FORCEREADY)
-    send_array(sock, np.array([energy_ha], dtype=DT_FLOAT), DT_FLOAT)
+    _send_msg(sock, FORCEREADY)
+    _send_array(sock, np.array([energy_ha], dtype=DT_FLOAT), DT_FLOAT)
     forces = np.asarray(forces_Nx3_ha_per_bohr, dtype=DT_FLOAT)
     assert forces.ndim == 2 and forces.shape[1] == 3
-    send_int(sock, forces.shape[0])
-    send_array(sock, forces, DT_FLOAT)
-    send_array(sock, np.asarray(virial_3x3_ha, dtype=DT_FLOAT).T, DT_FLOAT)
-    send_bytes(sock, more)
+    _send_int(sock, forces.shape[0])
+    _send_array(sock, forces, DT_FLOAT)
+    _send_array(sock, np.asarray(virial_3x3_ha, dtype=DT_FLOAT).T, DT_FLOAT)
+    _send_bytes(sock, more)
 
 
-def recv_getforce(sock: socket.socket):
+def _recv_getforce(sock: socket.socket):
     """
     Receive a FORCEREADY/SOURCEREADY payload after a GETFORCE/GETSOURCE request.
 
@@ -397,18 +397,18 @@ def recv_getforce(sock: socket.socket):
         ``extra`` is raw bytes.
     """
 
-    e = float(recv_array(sock, (1,), DT_FLOAT)[0])
-    nat = recv_int(sock)
-    frcs = recv_array(sock, (nat, 3), DT_FLOAT)
-    vir = recv_array(sock, (3, 3), DT_FLOAT).T.copy()
-    extra = recv_bytes(sock)
+    e = float(_recv_array(sock, (1,), DT_FLOAT)[0])
+    nat = _recv_int(sock)
+    frcs = _recv_array(sock, (nat, 3), DT_FLOAT)
+    vir = _recv_array(sock, (3, 3), DT_FLOAT).T.copy()
+    extra = _recv_bytes(sock)
     return e, frcs, vir, extra
 
 
 # -------- convenience wrappers for EM (i-PI compatible) --------
 
 
-def pack_em_fieldata(
+def _pack_em_fieldata(
     sock: socket.socket, t_au: float, dt_au: float, efield_au_vec3, meta: dict
 ):
     """
@@ -431,11 +431,11 @@ def pack_em_fieldata(
 
     I = np.eye(3, dtype=DT_FLOAT)
     exyz = np.asarray(efield_au_vec3, dtype=DT_FLOAT).reshape(1, 3)
-    send_posdata(sock, I, I, exyz)
+    _send_posdata(sock, I, I, exyz)
     # meta/time tags can be sent back in SOURCEREADY's extra blob if needed.
 
 
-def pack_init(sock: socket.socket, init_dict: dict):
+def _pack_init(sock: socket.socket, init_dict: dict):
     """
     Send an INIT handshake containing a JSON payload.
 
@@ -447,15 +447,15 @@ def pack_init(sock: socket.socket, init_dict: dict):
         Initialization dictionary (e.g., includes ``"molecule_id"``).
     """
 
-    send_msg(sock, INIT)
+    _send_msg(sock, INIT)
     molid = int(init_dict.get("molecule_id", 0))
-    send_int(sock, molid)
+    _send_int(sock, molid)
     init_bytes = json.dumps(init_dict).encode("utf-8")
-    send_bytes(sock, init_bytes)
+    _send_bytes(sock, init_bytes)
 
 
 @dataclass
-class ClientState:
+class _ClientState:
     """
     Dataclass storing per-client state for the socket hub.
 
@@ -639,7 +639,7 @@ class SocketHub:
             self.latency = float(latency)
 
             # key: molecule_id or temp id
-            self.clients: Dict[int, ClientState] = {}
+            self.clients: Dict[int, _ClientState] = {}
 
             # peer -> molecule_id
             self.addrmap: Dict[str, int] = {}
@@ -651,8 +651,8 @@ class SocketHub:
             # assign a molecular id accumulator
             self._molecule_id_counter = 0
 
-        # molecule_id -> ClientState (locked client)
-        self.bound: Dict[int, ClientState] = {}
+        # molecule_id -> _ClientState (locked client)
+        self.bound: Dict[int, _ClientState] = {}
 
         # molecule ids we expect to serve
         self.expected: set[int] = set()
@@ -686,33 +686,33 @@ class SocketHub:
 
             peer = addr if isinstance(addr, str) else f"{addr[0]}:{addr[1]}"
             csock.settimeout(self.timeout)
-            st = ClientState(sock=csock, address=peer, molecule_id=-1)
+            st = _ClientState(sock=csock, address=peer, molecule_id=-1)
             with self._lock:
                 # temp key: use id(csock) until INIT binds molecule_id
                 self.clients[id(csock)] = st
 
-    def _maybe_init_client(self, st: ClientState, init_payload: dict):
+    def _maybe_init_client(self, st: _ClientState, init_payload: dict):
         """
         Send INIT to a client with the given payload and mark it initialized.
 
         Parameters
         ----------
-        st : ClientState
+        st : _ClientState
             Client state to initialize.
         init_payload : dict
             Initialization payload (e.g., contains ``"molecule_id"``).
         """
 
-        pack_init(st.sock, init_payload)
+        _pack_init(st.sock, init_payload)
         st.initialized = True
 
-    def _dispatch_field(self, st: ClientState, efield_au: np.ndarray, meta: dict):
+    def _dispatch_field(self, st: _ClientState, efield_au: np.ndarray, meta: dict):
         """
         Dispatch an EM field vector to a client via FIELDDATA/POSDATA.
 
         Parameters
         ----------
-        st : ClientState
+        st : _ClientState
             Target client state.
         efield_au : numpy.ndarray
             Electric field vector ``(3,)`` in a.u.
@@ -721,21 +721,21 @@ class SocketHub:
 
         Raises
         ------
-        SocketClosed or OSError
+        _SocketClosed or OSError
             If the client disconnects during send.
         """
 
         try:
-            send_msg(st.sock, FIELDDATA)
+            _send_msg(st.sock, FIELDDATA)
             I = np.eye(3, dtype=DT_FLOAT)
-            send_array(st.sock, I.T, DT_FLOAT)
-            send_array(st.sock, I.T, DT_FLOAT)
-            send_int(st.sock, 1)
+            _send_array(st.sock, I.T, DT_FLOAT)
+            _send_array(st.sock, I.T, DT_FLOAT)
+            _send_int(st.sock, 1)
             vec = np.asarray(efield_au, dtype=DT_FLOAT).reshape(1, 3)
-            send_array(st.sock, vec, DT_FLOAT)
+            _send_array(st.sock, vec, DT_FLOAT)
             st.pending_send = True
             st.extras.update(meta or {})
-        except (socket.timeout, SocketClosed, OSError):
+        except (socket.timeout, _SocketClosed, OSError):
             st.alive = False
             if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
                 self._log(
@@ -744,13 +744,13 @@ class SocketHub:
                 self.bound[st.molecule_id] = None
             raise
 
-    def _query_result(self, st: ClientState) -> Tuple[np.ndarray, bytes]:
+    def _query_result(self, st: _ClientState) -> Tuple[np.ndarray, bytes]:
         """
         Request a client's source amplitude and read the READY payload.
 
         Parameters
         ----------
-        st : ClientState
+        st : _ClientState
             Client state to query.
 
         Returns
@@ -761,21 +761,21 @@ class SocketHub:
 
         Raises
         ------
-        SocketClosed or OSError
+        _SocketClosed or OSError
             If the client disconnects during the exchange.
         """
 
         try:
-            send_msg(st.sock, GETSOURCE)
-            msg = recv_msg(st.sock)
+            _send_msg(st.sock, GETSOURCE)
+            msg = _recv_msg(st.sock)
             if msg != SOURCEREADY:
-                raise SocketClosed(f"Expected {SOURCEREADY!r}, got {msg!r}")
-            e, forces, vir, extra = recv_getforce(st.sock)
+                raise _SocketClosed(f"Expected {SOURCEREADY!r}, got {msg!r}")
+            e, forces, vir, extra = _recv_getforce(st.sock)
             amp = np.array(forces[0], dtype=float)  # (3,)
             st.last_amp = amp
             st.pending_send = False
             return amp, extra
-        except (socket.timeout, SocketClosed, OSError):
+        except (socket.timeout, _SocketClosed, OSError):
             st.alive = False
             if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
                 self._log(
@@ -785,14 +785,14 @@ class SocketHub:
             raise
 
     def _bind_client_locked(
-        self, st: ClientState, molid: int, init_payload: dict, st_key
+        self, st: _ClientState, molid: int, init_payload: dict, st_key
     ):
         """
         Bind a client to a molecule ID if available and perform INIT.
 
         Parameters
         ----------
-        st : ClientState
+        st : _ClientState
             Client to bind.
         molid : int
             Molecule ID to bind to.
@@ -979,9 +979,9 @@ class SocketHub:
                     if not st or not st.alive:
                         continue
                     try:
-                        send_msg(st.sock, STATUS)
-                        reply = recv_msg(st.sock)
-                    except (socket.timeout, SocketClosed, OSError):
+                        _send_msg(st.sock, STATUS)
+                        reply = _recv_msg(st.sock)
+                    except (socket.timeout, _SocketClosed, OSError):
                         st.alive = False
                         if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
                             self._log(
@@ -1010,9 +1010,9 @@ class SocketHub:
             # 1. poll and init/dispatch
             for st_key, st in list(self.clients.items()):
                 try:
-                    send_msg(st.sock, STATUS)
-                    reply = recv_msg(st.sock)
-                except (socket.timeout, SocketClosed, OSError):
+                    _send_msg(st.sock, STATUS)
+                    reply = _recv_msg(st.sock)
+                except (socket.timeout, _SocketClosed, OSError):
                     st.alive = False
                     if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
                         self._log(
@@ -1084,9 +1084,9 @@ class SocketHub:
                     if not st or not st.alive:
                         continue
                     try:
-                        send_msg(st.sock, STATUS)
-                        reply = recv_msg(st.sock)
-                    except (socket.timeout, SocketClosed, OSError):
+                        _send_msg(st.sock, STATUS)
+                        reply = _recv_msg(st.sock)
+                    except (socket.timeout, _SocketClosed, OSError):
                         st.alive = False
                         if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
                             self._log(
@@ -1161,7 +1161,7 @@ class SocketHub:
             try:
                 amp, extra = self._query_result(st)
                 results[mid] = {"amp": amp, "extra": extra}
-            except (socket.timeout, SocketClosed, OSError):
+            except (socket.timeout, _SocketClosed, OSError):
                 return {}  # keep barrier for retry
 
         # SUCCESS — clear the frozen barrier
@@ -1246,9 +1246,9 @@ class SocketHub:
                     if st.molecule_id >= 0 and st.molecule_id not in pending_ids:
                         continue
                     try:
-                        send_msg(st.sock, STATUS)
-                        reply = recv_msg(st.sock)
-                    except (socket.timeout, SocketClosed, OSError):
+                        _send_msg(st.sock, STATUS)
+                        reply = _recv_msg(st.sock)
+                    except (socket.timeout, _SocketClosed, OSError):
                         st.alive = False
                         # free a binding if this was a re-connect case
                         if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
@@ -1294,7 +1294,7 @@ class SocketHub:
                 if not st or not st.alive:
                     continue
                 try:
-                    send_msg(st.sock, STOP)
+                    _send_msg(st.sock, STOP)
                 except Exception:
                     st.alive = False
                     if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
@@ -1314,7 +1314,7 @@ class SocketHub:
                     try:
                         # Make reads snappy during shutdown
                         st.sock.settimeout(self.latency)
-                        msg = recv_msg(st.sock)
+                        msg = _recv_msg(st.sock)
                         if msg == BYE:
                             # Clean close on our side
                             st.alive = False
@@ -1334,7 +1334,7 @@ class SocketHub:
                                 st.sock.close()
                             except Exception:
                                 pass
-                    except (socket.timeout, SocketClosed, OSError):
+                    except (socket.timeout, _SocketClosed, OSError):
                         # Either no message yet or peer closed already; keep sweeping
                         continue
 
