@@ -10,17 +10,19 @@ workflows focused on one classical cavity mode.
 
 .. note::
 
-  The cavity replaces the full EM grid with canonical coordinate :math:`q_c` and momentum :math:`p_c` obeying
+  The cavity replaces the full EM grid with canonical coordinate :math:`q_c` and momentum :math:`p_c = \dot{q}_c` obeying
 
   .. math::
 
-     \ddot{q}_c = -\omega_c^{2} q_c - \kappa\, p_c - g \sum_{m} \frac{d\mu_{m}}{dt} + D(t),
+     \ddot{q}_c = -\omega_c^{2} q_c - g \sum_{m} \frac{d\mu_{m}}{dt} - \kappa \dot{q}_c + D(t),
 
-  where :math:`\omega_c` is ``frequency_au``, :math:`\kappa` is ``damping_au``, :math:`g=1/\sqrt{\epsilon_0 V}` is ``coupling_strength``, and :math:`D(t)` is the optional external drive. The sum runs over the selected dipole component of each coupled molecule. The effective electric field returned to the drivers is
+  where :math:`\omega_c` is ``frequency_au``, :math:`\kappa` is ``damping_au``, :math:`g = 1/\sqrt{\epsilon_0 V}` is ``coupling_strength``, and :math:`D(t)` is the optional external drive. The sum runs over the selected dipole component of each coupled molecule. The effective electric field returned to the drivers is
 
   .. math::
 
-     E(t) = g\, p_c(t),
+     E(t) = g\, p_c(t) + \delta_{\mathrm{DSE}}\, g^{2}\, \mu(t),
+
+  with :math:`\mu(t)` the summed dipole along ``coupling_axis`` and :math:`\delta_{\mathrm{DSE}} = 1` only when ``include_dse=True``.
 
 Requirements
 ------------
@@ -119,6 +121,8 @@ Parameters
    * - ``record_history``
      - When ``True`` store histories for time, field, momentum, drive, and net molecular response.
        Default: ``True``.
+   * - ``include_dse``
+     - When ``True`` add the dipole self-energy correction to the field returned to the molecules and account for it in the cavity energy. Default: ``False``.
 
 Returned data
 -------------
@@ -131,6 +135,7 @@ populates:
 - :attr:`SingleModeSimulation.pc_history` – cavity momentum :math:`\dot{q}_c(t)`.
 - :attr:`SingleModeSimulation.drive_history` – external drive values.
 - :attr:`SingleModeSimulation.molecule_response_history` – summed molecular response along ``coupling_axis``.
+- :attr:`SingleModeSimulation.energy_history` – total energy of the cavity and coupled molecules (requires ``record_history=True``).
 
 Each :class:`~maxwelllink.Molecule` keeps
 :attr:`~maxwelllink.Molecule.additional_data_history`, which records driver

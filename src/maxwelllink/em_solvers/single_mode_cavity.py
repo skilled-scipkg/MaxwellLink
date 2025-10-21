@@ -138,7 +138,7 @@ class SingleModeSimulation(DummyEMSimulation):
        E(t) = g p(t) + g^2 \sum_i \mu_i(t),
 
     where :math:`g` is ``coupling_strength`` and the sum runs over the selected
-    molecular axis of all molecules. The second term in the electric field accounts for the dipole self-energy term.
+    molecular axis of all molecules. The second term in the electric field accounts for the dipole self-energy term if enabled.
     All quantities are in atomic units.
     """
 
