@@ -44,11 +44,14 @@ class FixMaxwellLink : public Fix {
   // conversion helpers
   double qe2f;         // taken from force->qe2f
   double v_to_au;      // velocity conversion factor (LAMMPS vel -> bohr/au_time)
+  double x_to_au;      // position conversion factor (LAMMPS length -> bohr)
   double efield_au_native; // E-field atomic units in native LAMMPS field units
 
   // accumulated dipole-rate this step (atomic units)
   double dmu_dt_local[3];
   double dmu_dt_global[3];
+  double mu_local[3];
+  double mu_global[3];
 
    // timestep from MaxwellLink
    double dt_au_recv = 0.0;        // dt in atomic units received from INIT

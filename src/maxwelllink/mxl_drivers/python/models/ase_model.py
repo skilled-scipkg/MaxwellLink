@@ -180,6 +180,7 @@ class ForceAugmenter(Calculator):
         self._cache_key = None
         self._cache_energy = None
         self._cache_forces = None
+        self._cache_dipole_vec = None
 
     def set_field_au(self, Evec3_au):
         """
@@ -296,6 +297,8 @@ class ForceAugmenter(Calculator):
 
             # Add uniform-field force in eV/Angstrom
             Fext = q.reshape(-1, 1) * (self._E_au * FORCE_PER_EFIELD_AU_EV_PER_ANG)
+            # after force calculation, also calculate dipole vector for later use
+            self._cache_dipole_vec = (q.reshape(1, -1) @ atoms.get_positions()) * BOHR_PER_ANG
             return Fext
 
     def calculate(self, atoms=None, properties=("energy",), system_changes=all_changes):
@@ -632,6 +635,10 @@ class ASEModel(DummyModel):
 
         d = {
             "time_au": float(self.t),
+            "energy_au": float(self.forcewrap._cache_energy),
+            "mux_au": float(self.forcewrap._cache_dipole_vec[0]),
+            "muy_au": float(self.forcewrap._cache_dipole_vec[1]),
+            "muz_au": float(self.forcewrap._cache_dipole_vec[2]),
             "temperature_K": float(self.atoms.get_temperature()),
         }
         return d

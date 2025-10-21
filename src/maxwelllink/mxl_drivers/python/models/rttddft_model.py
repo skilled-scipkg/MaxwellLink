@@ -996,9 +996,9 @@ class RTTDDFTModel(DummyModel):
         data = {}
         data["time_au"] = self.t
         data["energy_au"] = self.energies[-1] if len(self.energies) > 0 else 0.0
-        data["mu_x_au"] = self.dipoles[-1][0] if len(self.dipoles) > 0 else 0.0
-        data["mu_y_au"] = self.dipoles[-1][1] if len(self.dipoles) > 0 else 0.0
-        data["mu_z_au"] = self.dipoles[-1][2] if len(self.dipoles) > 0 else 0.0
+        data["mux_au"] = self.dipoles[-1][0] if len(self.dipoles) > 0 else 0.0
+        data["muy_au"] = self.dipoles[-1][1] if len(self.dipoles) > 0 else 0.0
+        data["muz_au"] = self.dipoles[-1][2] if len(self.dipoles) > 0 else 0.0
         return data
 
     def _dump_to_checkpoint(self):

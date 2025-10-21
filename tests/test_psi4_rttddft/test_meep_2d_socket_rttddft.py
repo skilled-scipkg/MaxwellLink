@@ -134,7 +134,7 @@ def test_2d_rttddft_psi4_via_socket(plotting=False):
         if mp.am_master():
             # Extract the history that the driver populated via "additional_data"
             mu_z_au = np.array(
-                [np.real(ad["mu_z_au"]) for ad in molecule.additional_data_history]
+                [np.real(ad["muz_au"]) for ad in molecule.additional_data_history]
             )
             # time reported in atomic units in this socket path
             time_au = np.array(
@@ -265,7 +265,7 @@ def test_2d_rttddft_psi4_via_socket_v2(plotting=False):
         if mp.am_master():
             # Extract the history that the driver populated via "additional_data"
             mu_z_au = np.array(
-                [np.real(ad["mu_z_au"]) for ad in molecule.additional_data_history]
+                [np.real(ad["muz_au"]) for ad in molecule.additional_data_history]
             )
             # time reported in atomic units in this socket path
             time_au = np.array(

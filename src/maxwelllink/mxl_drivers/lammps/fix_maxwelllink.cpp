@@ -68,7 +68,7 @@ FixMaxwellLink::FixMaxwellLink(LAMMPS *lmp, int narg, char **arg)
   sockfd(-1), initialized(0), have_field(0),
   bsize(0), ex_fac(0.0), ey_fac(0.0), ez_fac(0.0),
   Eau_x(0.0), Eau_y(0.0), Eau_z(0.0),
-  qe2f(0.0), v_to_au(0.0), efield_au_native(0.0)
+  qe2f(0.0), v_to_au(0.0), x_to_au(0.0), efield_au_native(0.0)
 {
   if (narg < 5) utils::missing_cmd_args(FLERR, "fix MaxwellLink", error);
 
@@ -142,6 +142,7 @@ void FixMaxwellLink::init()
   // converting LAMMPS native velocity to a.u. should apply the inverse
   // idea is for 1 Angstrom/fs velocity in LAMMPS to become ~0.0457 a.u. velocity
   v_to_au = 1.0 / (a0_native / timeau_native);
+  x_to_au = 1.0 / a0_native;
 
   // E-field conversion definition:
   // converting E-field in atomic units to LAMMPS native units
@@ -318,8 +319,19 @@ void FixMaxwellLink::build_additional_json(std::string& out,
   std::ostringstream ss;
   ss.setf(std::ios::fixed);
   ss << std::setprecision(15);
+  /*
+  We recommend including "time_au", "energy_au", and dipole
+        components "mux_au", "muy_au", "muz_au" in the returned dictionary. This format 
+        would allow for easy energy analysis. Dipole information is useful for debugging
+        and also computing dipole self-energy term if needed.
+  */
   ss << '{'
      << "\"t_fs\":"   << t_fs
+     << ",\"t_au\":"<< t_fs * 41.3413745758
+     << ",\"mux_au\":"<< mu_global[0]
+     << ",\"muy_au\":"<< mu_global[1]
+     << ",\"muz_au\":"<< mu_global[2]
+     << ",\"energy_au\":"<< ke_au + pe_au
      << ",\"temp_K\":"<< tempK
      << ",\"pe_au(not implemented)\":" << pe_au
      << ",\"ke_au\":" << ke_au
@@ -581,8 +593,10 @@ void FixMaxwellLink::final_integrate()
   // Compute d(mu)/dt = sum q v  (convert v to atomic units), reduce, and reply.
   // Reset local accumulator
   dmu_dt_local[0]=dmu_dt_local[1]=dmu_dt_local[2]=0.0;
+  dmu_dt_global[0]=dmu_dt_global[1]=dmu_dt_global[2]=0.0;
 
   double **v = atom->v;
+  double **x = atom->x;
   double *q  = atom->q;
   int *mask  = atom->mask;
   int nlocal = atom->nlocal;
@@ -600,6 +614,21 @@ void FixMaxwellLink::final_integrate()
   //       comm->me, dmu_dt_local[0], dmu_dt_local[1], dmu_dt_local[2], nlocal);
   
   MPI_Allreduce(dmu_dt_local, dmu_dt_global, 3, MPI_DOUBLE, MPI_SUM, world);
+
+
+  // calculate dipole moment vector
+  mu_local[0]=mu_local[1]=mu_local[2]=0.0;
+  mu_global[0]=mu_global[1]=mu_global[2]=0.0;
+
+  for (int i=0;i<nlocal;i++) {
+    if (!(mask[i] & groupbit)) continue;
+    // LAMMPS v units -> atomic units
+    mu_local[0] += q[i] * (x[i][0] * x_to_au);
+    mu_local[1] += q[i] * (x[i][1] * x_to_au);
+    mu_local[2] += q[i] * (x[i][2] * x_to_au);
+  }
+
+  MPI_Allreduce(mu_local, mu_global, 3, MPI_DOUBLE, MPI_SUM, world);
 
   //printf("[MaxwellLink] Global d(mu)/dt (a.u.): [%.6g, %.6g, %.6g]\n",
   //       dmu_dt_global[0], dmu_dt_global[1], dmu_dt_global[2]);

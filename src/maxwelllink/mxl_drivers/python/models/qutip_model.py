@@ -605,9 +605,10 @@ class QuTiPModel(DummyModel):
 
         data = {
             "time_au": self.t,
-            "mu_x_au": float(self._mu_curr[0]),
-            "mu_y_au": float(self._mu_curr[1]),
-            "mu_z_au": float(self._mu_curr[2]),
+            "mux_au": float(self._mu_curr[0]),
+            "muy_au": float(self._mu_curr[1]),
+            "muz_au": float(self._mu_curr[2]),
+            "energy_au": float(qt.expect(self.H0, self.rho)),
             "rho_diag": np.real(np.diag(self.rho.full())).tolist(),
         }
         if self._dim == 2:

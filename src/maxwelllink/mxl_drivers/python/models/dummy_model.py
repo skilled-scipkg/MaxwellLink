@@ -143,7 +143,10 @@ class DummyModel:
         Notes
         -----
         This method can be *optionally* overridden by subclasses to send additional
-        data to MaxwellLink.
+        data to MaxwellLink. We recommend including "time_au", "energy_au", and dipole
+        components "mux_au", "muy_au", "muz_au" in the returned dictionary. This format 
+        would allow for easy energy analysis. Dipole information is useful for debugging
+        and also computing dipole self-energy term if needed.
 
         Returns
         -------

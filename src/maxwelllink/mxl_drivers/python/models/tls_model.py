@@ -227,9 +227,9 @@ class TLSModel(DummyModel):
         data = {}
         data["time_au"] = self.t
         data["energy_au"] = self.energy if self.energy is not None else 0.0
-        data["mu_x_au"] = self.dipole_vec[0] if self.dipole_vec is not None else 0.0
-        data["mu_y_au"] = self.dipole_vec[1] if self.dipole_vec is not None else 0.0
-        data["mu_z_au"] = self.dipole_vec[2] if self.dipole_vec is not None else 0.0
+        data["mux_au"] = self.dipole_vec[0] if self.dipole_vec is not None else 0.0
+        data["muy_au"] = self.dipole_vec[1] if self.dipole_vec is not None else 0.0
+        data["muz_au"] = self.dipole_vec[2] if self.dipole_vec is not None else 0.0
         data["Pe"] = self.rho[1, 1].real
         data["Pg"] = self.rho[0, 0].real
         data["Pge_real"] = np.real(self.rho[0, 1])

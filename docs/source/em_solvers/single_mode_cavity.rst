@@ -14,16 +14,13 @@ workflows focused on one classical cavity mode.
 
   .. math::
 
-     \dot{q}_c = p_c, \qquad
-     \dot{p}_c = -\omega_c^{2} q_c - \kappa\, p_c + g \sum_{m} \frac{d\mu_{m}}{dt} + D(t),
+     \ddot{q}_c = -\omega_c^{2} q_c - \kappa\, p_c - g \sum_{m} \frac{d\mu_{m}}{dt} + D(t),
 
-  where :math:`\omega_c` is ``frequency_au``, :math:`\kappa` is ``damping_au``, :math:`g` is ``coupling_strength``, and :math:`D(t)` is the optional external drive. The sum runs over the selected dipole component of each coupled molecule. The effective electric field returned to the drivers is
+  where :math:`\omega_c` is ``frequency_au``, :math:`\kappa` is ``damping_au``, :math:`g=1/\sqrt{\epsilon_0 V}` is ``coupling_strength``, and :math:`D(t)` is the optional external drive. The sum runs over the selected dipole component of each coupled molecule. The effective electric field returned to the drivers is
 
   .. math::
 
-     E(t) = - g\, p_c(t),
-
-  ensuring energy balance between the cavity mode and the molecular dipole currents.
+     E(t) = g\, p_c(t),
 
 Requirements
 ------------
