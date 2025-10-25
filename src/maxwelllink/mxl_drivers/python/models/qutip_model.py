@@ -485,11 +485,11 @@ class QuTiPModel(DummyModel):
 
         Heff = self.H0
         if self.mu_ops["x"] is not None:
-            Heff = Heff - float(E_vec[0]) * self.mu_ops["x"]
+            Heff -= float(E_vec[0]) * self.mu_ops["x"]
         if self.mu_ops["y"] is not None:
-            Heff = Heff - float(E_vec[1]) * self.mu_ops["y"]
+            Heff -= float(E_vec[1]) * self.mu_ops["y"]
         if self.mu_ops["z"] is not None:
-            Heff = Heff - float(E_vec[2]) * self.mu_ops["z"]
+            Heff -= float(E_vec[2]) * self.mu_ops["z"]
 
         U = (-1j * Heff * self.dt).expm()
         self.rho = U * self.rho * U.dag()
@@ -507,11 +507,11 @@ class QuTiPModel(DummyModel):
 
         H = self.H0
         if self.mu_ops["x"] is not None:
-            H = H - float(E_vec[0]) * self.mu_ops["x"]
+            H -= float(E_vec[0]) * self.mu_ops["x"]
         if self.mu_ops["y"] is not None:
-            H = H - float(E_vec[1]) * self.mu_ops["y"]
+            H -= float(E_vec[1]) * self.mu_ops["y"]
         if self.mu_ops["z"] is not None:
-            H = H - float(E_vec[2]) * self.mu_ops["z"]
+            H -= float(E_vec[2]) * self.mu_ops["z"]
 
         # Single "macro" step: piecewise-constant E over [0, dt]
         res = qt.mesolve(H, self.rho, tlist=[0.0, self.dt], c_ops=self.c_ops, e_ops=[])

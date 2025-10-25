@@ -110,7 +110,6 @@ def fft(x, dtfs, N=None, field_description="square"):
         field_description = 1.0
     else:
         raise ValueError("field_description must be 'square' or 'none'")
-    field_description = freq_au**2
     spectra = field_description * lineshape
     return freq_cminverse, spectra
 

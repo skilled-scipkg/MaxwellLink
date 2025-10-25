@@ -3,6 +3,7 @@
 import numpy as np
 from maxwelllink.units import AU_TO_FS, AU_TO_EV
 
+
 def _pade(
     time,
     signal,

@@ -21,6 +21,10 @@
 #include "compute.h"
 #include "neighbor.h"
 #include "input.h" 
+#include "pair.h"
+#include "output.h"
+#include "variable.h"
+#include "respa.h"
 #include <sstream>
 #include <iomanip>
 
@@ -96,6 +100,10 @@ FixMaxwellLink::FixMaxwellLink(LAMMPS *lmp, int narg, char **arg)
   master = (comm->me == 0) ? 1 : 0;
   bsize = 0;
 
+  respa_level_support = 1;
+  ilevel_respa = 0;
+  last_field_timestep = -1;
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -113,7 +121,9 @@ int FixMaxwellLink::setmask()
   int mask = 0;
   mask |= INITIAL_INTEGRATE; // receive E-field for this step
   mask |= POST_FORCE;        // apply F = qE
-  mask |= FINAL_INTEGRATE;   // compute/send d(mu)/dt
+  mask |= POST_FORCE_RESPA;    // NEW: ensure application at correct RESPA level
+  mask |= MIN_POST_FORCE;    // NEW: ensure application during minimization
+  mask |= END_OF_STEP;   // compute/send d(mu)/dt
   return mask;
 }
 
@@ -121,6 +131,10 @@ int FixMaxwellLink::setmask()
 
 void FixMaxwellLink::init()
 {
+   qflag = 0;
+   if (atom->q_flag) qflag = 1;
+   if (!qflag) error->all(FLERR, "Fix MaxwellLink requires per-atom charge 'q' (no q_flag)");
+
   // units conversion parameters
   // prefactor to convert lammps charge * E-field (native units) to force (native units)
   qe2f = force->qe2f;
@@ -155,8 +169,22 @@ void FixMaxwellLink::init()
   }
 
   // makes sure that neighbor lists are re-built at each step
-  neighbor->delay = 0;
-  neighbor->every = 1;
+  //neighbor->delay = 0;
+  //neighbor->every = 1;
+
+  // NEW: select RESPA level similar to fix efield (apply at outermost by default)
+  if (utils::strmatch(update->integrate_style, "^respa")) {
+    auto *r = dynamic_cast<Respa *>(update->integrate);
+    if (r) {
+      ilevel_respa = r->nlevels - 1;
+      if (respa_level >= 0) ilevel_respa = MIN(respa_level, ilevel_respa);
+    }
+  }
+
+  // compute PE. makes sure that it will be evaluated at next step
+  modify->compute[modify->find_compute("thermo_pe")]->invoked_scalar = -1;
+  modify->addstep_compute_all(update->ntimestep+1);
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -326,14 +354,14 @@ void FixMaxwellLink::build_additional_json(std::string& out,
         and also computing dipole self-energy term if needed.
   */
   ss << '{'
-     << "\"t_fs\":"   << t_fs
-     << ",\"t_au\":"<< t_fs * 41.3413745758
+     << "\"time_fs\":"   << t_fs
+     << ",\"time_au\":"<< t_fs * 41.3413745758
      << ",\"mux_au\":"<< mu_global[0]
      << ",\"muy_au\":"<< mu_global[1]
      << ",\"muz_au\":"<< mu_global[2]
      << ",\"energy_au\":"<< ke_au + pe_au
      << ",\"temp_K\":"<< tempK
-     << ",\"pe_au(not implemented)\":" << pe_au
+     << ",\"pe_au\":" << pe_au
      << ",\"ke_au\":" << ke_au
      << ",\"dmudt_au\":["<< dmudt_au[0] << ',' << dmudt_au[1] << ',' << dmudt_au[2] << "]"
      << '}';
@@ -377,15 +405,28 @@ void FixMaxwellLink::handshake_if_needed()
         dt_native_recv = dt_au_recv * timeau_native;
         // Force LAMMPS to use this dt on the master now
         const double prior = update->dt;
-        update->dt = dt_native_recv;
+        //update->dt = dt_native_recv;
         // Make the integrator recompute its internal factors for the new dt
-        if (update->integrate) update->integrate->reset_dt();
+        //update->integrate->reset_dt();
+
+        update->update_time();
+        update->dt = dt_native_recv;
+        update->dt_default = 0;
+        if (true) update->integrate->reset_dt();
+        if (force->pair) force->pair->reset_dt();
+        for (auto &ifix : modify->get_fix_list()) ifix->reset_dt();
+        output->reset_dt();
+
+        // TODO: broadcast new dt to all ranks but we need to do it outside this function!
+
         dt_synced = 1;
         if (comm->me == 0) {
           printf("[MaxwellLink] 1 atomic units time in LAMMPS native time units = %.15g\n", timeau_native);
           printf("[MaxwellLink] MaxwellLink uses time step: dt_au = %.15g ->  dt_native (LAMMPS units) = %.15g\n",
                  dt_au_recv, dt_native_recv);
-          printf("[MaxwellLink] WARNING: Changing default LAMMPS time step (%.15g) to match MaxwellLink\n", prior);
+          printf("[MaxwellLink] Modified LAMMPS time step from %.15g to %.15g to match MaxwellLink dt!\n",
+                 prior, update->dt);
+          printf("[MaxwellLink] Make sure all coupled simulations use this time step, after the modification, LAMMPS dt = %.15g!\n", update->dt);
         }
       } else if (comm->me == 0) {
         printf("[MaxwellLink] WARNING: INIT had no valid dt_au; keeping existing LAMMPS dt = %.15g\n",
@@ -430,20 +471,9 @@ void FixMaxwellLink::recv_efield()
   Eau_y = evec[1];
   Eau_z = evec[2];
 
-  // Precompute the force factors used in post_force:
-  ex_fac = qe2f * efield_au_native * Eau_x;
-  ey_fac = qe2f * efield_au_native * Eau_y;
-  ez_fac = qe2f * efield_au_native * Eau_z;
-
-  //printf("[MaxwellLink] within recv_efield: efield_au_native = %.6g\n", efield_au_native);
-  //printf("[MaxwellLink] within recv_efield: qe2f = %.6g\n", qe2f);
-  //printf("[MaxwellLink] within recv_efield: Received E-field (a.u.): [%.6g, %.6g, %.6g]\n", Eau_x, Eau_y, Eau_z);
-  //printf("[MaxwellLink] within recv_efield: Computed force factors: [%.6g, %.6g, %.6g]\n", ex_fac, ey_fac, ez_fac);
-
   have_field = 1;
 }
 
-/* ---------------------------------------------------------------------- */
 
 void FixMaxwellLink::send_amp_vector(const std::string& extra)
 {
@@ -474,6 +504,7 @@ void FixMaxwellLink::send_amp_vector(const std::string& extra)
 
 void FixMaxwellLink::initial_integrate(int /*vflag*/)
 {
+
   // Master: drive handshake (if needed), then wait for FIELDDATA for this step
   // Non-master: will get E broadcast from master
   char header[MSGLEN+1];
@@ -487,19 +518,6 @@ void FixMaxwellLink::initial_integrate(int /*vflag*/)
   }
 
   MPI_Barrier(world);
-
-  // One-time broadcast of negotiated dt to all ranks
-  double dtbuf = dt_native_recv;
-  MPI_Bcast(&dtbuf, 1, MPI_DOUBLE, 0, world);
-
-  if (!master && !dt_synced) {
-      const double prior = update->dt;
-      update->dt = dtbuf;
-      if (update->integrate) update->integrate->reset_dt();
-      dt_synced = 1;
-      printf("[MaxwellLink] Applied MEEP dt on non-master workers: dt_native (LAMMPS units) = %.15g (was %.15g in LAMMPS input file)\n",
-               dtbuf, prior);
-  }
 
   if (master) {
 
@@ -545,24 +563,27 @@ void FixMaxwellLink::initial_integrate(int /*vflag*/)
   Eau_y = ebuf[1];
   Eau_z = ebuf[2];
 
-  // recompute force factors locally (identical on all ranks)
-  ex_fac = qe2f * efield_au_native * Eau_x;
-  ey_fac = qe2f * efield_au_native * Eau_y;
-  ez_fac = qe2f * efield_au_native * Eau_z;
+  // compute force factors locally (identical on all ranks)
+  ex_fac = efield_au_native * Eau_x;
+  ey_fac = efield_au_native * Eau_y;
+  ez_fac = efield_au_native * Eau_z;
 
   MPI_Barrier(world);
 
-  //printf("[MaxwellLink] MPI rank %d Received E-field (a.u.): [%.6g, %.6g, %.6g] -> Force factors: [%.6g, %.6g, %.6g]\n",
-  //       comm->me, Eau_x, Eau_y, Eau_z, ex_fac, ey_fac, ez_fac);
+  // compute PE. makes sure that it will be evaluated at next step
+  modify->compute[modify->find_compute("thermo_pe")]->invoked_scalar = -1;
+  modify->addstep_compute_all(update->ntimestep+1);
 
   have_field = 1;
 }
 
-/* ---------------------------------------------------------------------- */
-
 void FixMaxwellLink::post_force(int vflag)
 {
-  if (!have_field) return;
+
+  //if (!have_field) return;
+  // NEW: make sure E(t) is available for THIS timestep before applying forces
+  // ensure_field_for_current_step();
+  if (!have_field) return;  // graceful no-op if server asked us to stop
 
   // Apply F = qE (constant field this step), mirroring fix_efield constant path.
   double **f = atom->f;
@@ -573,7 +594,6 @@ void FixMaxwellLink::post_force(int vflag)
 
   if (!atom->q_flag)
     error->all(FLERR, "Fix MaxwellLink requires per-atom charge 'q' (no q_flag)");
-
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
       f[i][0] += q[i] * ex_fac;
@@ -581,15 +601,55 @@ void FixMaxwellLink::post_force(int vflag)
       f[i][2] += q[i] * ez_fac;
     }
   }
+}
 
-  //printf("[MaxwellLink] MPI rank %d applied F=qE to %d atoms\n", comm->me, nlocal);
-  //printf("[MaxwellLink] Last E-field (a.u.): [%.6g, %.6g, %.6g]\n", Eau_x, Eau_y, Eau_z);
+
+void FixMaxwellLink::setup(int vflag)
+{
+  if (utils::strmatch(update->integrate_style, "^respa")) {
+    auto respa = dynamic_cast<Respa *>(update->integrate);
+    respa->copy_flevel_f(ilevel_respa);
+    post_force_respa(vflag, ilevel_respa, 0);
+    respa->copy_f_flevel(ilevel_respa);
+  } else {
+    post_force(vflag);
+  }
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixMaxwellLink::final_integrate()
+void FixMaxwellLink::min_setup(int vflag)
 {
+  post_force(vflag);
+}
+
+void FixMaxwellLink::post_force_respa(int vflag, int ilevel, int /*iloop*/)
+{
+  if (ilevel == ilevel_respa) post_force(vflag);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixMaxwellLink::min_post_force(int vflag)
+{
+  post_force(vflag);
+}
+
+
+/* ---------------------------------------------------------------------- */
+
+void FixMaxwellLink::end_of_step()
+{
+  // TODO: Because MaxwellLink sends E(t+dt/2) to LAMMPS at the beginning of step t,
+  // and expect mu, dmu/dt at t+dt to be sent back at the end of step t,
+  // there is a half-step misalignment in time.
+
+  // With velocity verlet algorithm defined here, because E(t+dt/2) is used to compute F(t+dt/2),
+  // at this stage, x, and v are at t+dt/2, not t+dt yet.
+
+  // To be fully consistent, we should predict mu, and dmudt at t+dt based on x(t+dt/2) and v(t+dt/2).
+  // TODO prediction!
+
   // Compute d(mu)/dt = sum q v  (convert v to atomic units), reduce, and reply.
   // Reset local accumulator
   dmu_dt_local[0]=dmu_dt_local[1]=dmu_dt_local[2]=0.0;
@@ -616,16 +676,19 @@ void FixMaxwellLink::final_integrate()
   MPI_Allreduce(dmu_dt_local, dmu_dt_global, 3, MPI_DOUBLE, MPI_SUM, world);
 
 
-  // calculate dipole moment vector
+  // calculate dipole moment vector; note that the coordinate should use the unwrapped, original coordinate
+  imageint *image = atom->image;
+  double unwrap[3];
+
   mu_local[0]=mu_local[1]=mu_local[2]=0.0;
-  mu_global[0]=mu_global[1]=mu_global[2]=0.0;
 
   for (int i=0;i<nlocal;i++) {
     if (!(mask[i] & groupbit)) continue;
     // LAMMPS v units -> atomic units
-    mu_local[0] += q[i] * (x[i][0] * x_to_au);
-    mu_local[1] += q[i] * (x[i][1] * x_to_au);
-    mu_local[2] += q[i] * (x[i][2] * x_to_au);
+    domain->unmap(x[i], image[i], unwrap);
+    mu_local[0] += q[i] * (unwrap[0] * x_to_au);
+    mu_local[1] += q[i] * (unwrap[1] * x_to_au);
+    mu_local[2] += q[i] * (unwrap[2] * x_to_au);
   }
 
   MPI_Allreduce(mu_local, mu_global, 3, MPI_DOUBLE, MPI_SUM, world);
@@ -652,19 +715,18 @@ void FixMaxwellLink::final_integrate()
   }
 
   // --- Potential energy (native) & temperature (K): use computes if present
-  bool   have_pe = false;
-  double pe_native = 0.0;
   double tempK = -1.0;
 
-  // TODO: compute potential energy of the molecular system
+  double pe_native = modify->compute[modify->find_compute("thermo_pe")]->compute_scalar();
 
-  // fallback temp from KE:  T = 2 KE / (dof * kB)
   const double dof = 3.0 * (double)ngrp_global;
   if (tempK < 0.0 && dof > 0.0) tempK = (2.0 * ke_global) / (force->boltz * dof);
 
   // --- Convert requested fields to required units
   const double ke_au = ke_global / Eh_native;
-  const double pe_au = have_pe ? (pe_native / Eh_native) : 0.0;
+  const double pe_au = pe_native / Eh_native;
+  //const double pe_au = potconv * potconv;
+
   const double t_native = update->ntimestep * update->dt;
   const double t_fs     = t_native / force->femtosecond; // native -> femtoseconds
 

@@ -21,7 +21,11 @@ class FixMaxwellLink : public Fix {
 
   void initial_integrate(int) override;  // receive E-field from MaxwellLink
   void post_force(int) override;         // apply F = qE
-  void final_integrate() override;       // send d(mu)/dt back to MaxwellLink
+  void setup(int) override;
+  void min_setup(int) override;
+  void post_force_respa(int, int, int) override;
+  void min_post_force(int) override;
+  void end_of_step() override;       // send d(mu)/dt back to MaxwellLink
 
  private:
   // connection/config
@@ -33,6 +37,7 @@ class FixMaxwellLink : public Fix {
   int initialized; // after INIT handshake
   int have_field;  // E-field received this step
   int molid;       // molecule ID
+  int qflag = 0;   // NEW: track presence of per-atom charges (like fix efield)
 
   bool stop_requested = false;
 
@@ -50,8 +55,10 @@ class FixMaxwellLink : public Fix {
   // accumulated dipole-rate this step (atomic units)
   double dmu_dt_local[3];
   double dmu_dt_global[3];
+  double dmu_dt_global_prev[3];
   double mu_local[3];
   double mu_global[3];
+  double mu_global_prev[3];
 
    // timestep from MaxwellLink
    double dt_au_recv = 0.0;        // dt in atomic units received from INIT
@@ -65,6 +72,10 @@ class FixMaxwellLink : public Fix {
   double a0_native;         // 1 bohr in LAMMPS native length units
   double timeau_native;     // 1 a.u. time in LAMMPS native time units
   double Eh_native;         // 1 Hartree in LAMMPS native energy units
+
+  int ilevel_respa;  // respa level to apply fix at
+  long last_field_timestep = -1; // NEW: ensure we fetch E-field once per LAMMPS timestep
+ 
 
   // helpers
   void open_socket();

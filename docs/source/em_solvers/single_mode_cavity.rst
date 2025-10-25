@@ -14,13 +14,13 @@ workflows focused on one classical cavity mode.
 
   .. math::
 
-     \ddot{q}_c = -\omega_c^{2} q_c - g \sum_{m} \frac{d\mu_{m}}{dt} - \kappa \dot{q}_c + D(t),
+     \ddot{q}_c = -\omega_c^{2} q_c - \varepsilon \sum_{m} \mu_{m} - \kappa \dot{q}_c + D(t),
 
   where :math:`\omega_c` is ``frequency_au``, :math:`\kappa` is ``damping_au``, :math:`g = 1/\sqrt{\epsilon_0 V}` is ``coupling_strength``, and :math:`D(t)` is the optional external drive. The sum runs over the selected dipole component of each coupled molecule. The effective electric field returned to the drivers is
 
   .. math::
 
-     E(t) = g\, p_c(t) + \delta_{\mathrm{DSE}}\, g^{2}\, \mu(t),
+     E(t) = -\varepsilon\, q_c(t) - \delta_{\mathrm{DSE}} \frac{\varepsilon^{2}}{\omega_c^{2}}\, \mu(t),
 
   with :math:`\mu(t)` the summed dipole along ``coupling_axis`` and :math:`\delta_{\mathrm{DSE}} = 1` only when ``include_dse=True``.
 
@@ -118,6 +118,12 @@ Parameters
      - Initial cavity coordinate :math:`q_c(0)` (a.u.). Default: ``0.0``.
    * - ``pc_initial``
      - Initial cavity momentum :math:`\dot{q}_c(0)` (a.u.). Default: ``0.0``.
+   * - ``mu_initial``
+     - Initial total molecular dipole along the coupling axis (a.u.). Default: ``0.0``.
+   * - ``dmudt_initial``
+     - Initial time derivative of the total molecular dipole along the coupling axis (a.u.). Default: ``0.0``.
+   * - ``molecule_half_step``
+     - When ``True`` extrapolate molecular responses from half-step data (use ``False`` for full-step drivers). Default: ``True``.
    * - ``record_history``
      - When ``True`` store histories for time, field, momentum, drive, and net molecular response.
        Default: ``True``.

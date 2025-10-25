@@ -298,7 +298,9 @@ class ForceAugmenter(Calculator):
             # Add uniform-field force in eV/Angstrom
             Fext = q.reshape(-1, 1) * (self._E_au * FORCE_PER_EFIELD_AU_EV_PER_ANG)
             # after force calculation, also calculate dipole vector for later use
-            self._cache_dipole_vec = (q.reshape(1, -1) @ atoms.get_positions()) * BOHR_PER_ANG
+            self._cache_dipole_vec = (
+                q.reshape(1, -1) @ atoms.get_positions()
+            ) * BOHR_PER_ANG
             return Fext
 
     def calculate(self, atoms=None, properties=("energy",), system_changes=all_changes):
