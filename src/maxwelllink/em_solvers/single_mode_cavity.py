@@ -168,7 +168,7 @@ class SingleModeSimulation(DummyEMSimulation):
         dmudt_initial: float = 0.0,
         record_history: bool = True,
         include_dse: bool = False,
-        molecule_half_step: bool = True,
+        molecule_half_step: bool = False,
     ):
         """
         Parameters
@@ -503,8 +503,8 @@ class SingleModeSimulation(DummyEMSimulation):
 
         # updating E-field at half step using interpolated dipole
         dipole = self.dipole + 0.5 * self.dt * (
-            1.5 * self.dmudt - 0.5 * self.dmudt_prev
-        )
+                1.5 * self.dmudt - 0.5 * self.dmudt_prev
+            )
         efield_vec = self._calc_effective_efield(
             qc_prev + 0.5 * self.dt * pc_half, dipole
         )

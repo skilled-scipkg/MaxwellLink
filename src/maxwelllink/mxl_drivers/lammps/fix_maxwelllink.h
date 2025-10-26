@@ -55,9 +55,11 @@ class FixMaxwellLink : public Fix {
   // accumulated dipole-rate this step (atomic units)
   double dmu_dt_local[3];
   double dmu_dt_global[3];
+  double dmu_dt_global_midpoint[3];
   double dmu_dt_global_prev[3];
   double mu_local[3];
   double mu_global[3];
+  double mu_global_midpoint[3];
   double mu_global_prev[3];
 
    // timestep from MaxwellLink
@@ -84,6 +86,7 @@ class FixMaxwellLink : public Fix {
   void recv_efield();          // read FIELDDATA/POSDATA and set ex_fac,ey_fac,ez_fac
   // void send_amp_vector();      // reply to GETSOURCE with dmu_dt_global (FORCEREADY)
   void send_amp_vector(const std::string& extra_json); // reply with FORCEREADY (+ extra)
+  void calc_dipole_info(double *mu, double *dmu_dt, double &ke_au, double &tempK);
 
   // socket I/O
   void writebuffer(const char *data, int len);
@@ -92,6 +95,7 @@ class FixMaxwellLink : public Fix {
   int  read_int32();             // host-order int32
   int  read_bytes(char *&buf);   // malloc+read blob, returns length
   void set_nodelay_keepalive();  // TCP_NODELAY + SO_KEEPALIVE
+  void broadcast_dt();        // broadcast dt_native_recv to all ranks
 
   // disallow copy
   FixMaxwellLink(const FixMaxwellLink&) = delete;

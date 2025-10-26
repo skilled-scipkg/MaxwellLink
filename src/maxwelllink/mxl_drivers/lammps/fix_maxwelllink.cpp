@@ -1,10 +1,11 @@
 /* ----------------------------------------------------------------------
    FixMaxwellLink: i-PI–compatible client that:
+   - modify dt based on MaxwellLink INIT message,
    - receives E-field [Ex,Ey,Ez] in atomic units from a MaxwellLink SocketHub,
    - applies F = qE to atoms, and
-   - sends back d(mu)/dt = sum_i q_i v_i (atomic units) each step.
+   - sends back d(mu)/dt = sum_i q_i v_i and mu (all atomic units) each step.
    Contributing author: Tao E. Li (University of Delaware)
-   --------------------------------------------- */
+   --------------------------------------------------------------------- */
 
 #include "fix_maxwelllink.h"
 
@@ -162,17 +163,12 @@ void FixMaxwellLink::init()
   // converting E-field in atomic units to LAMMPS native units
   // idea is for 1 Hartree/e/Bohr E-field in atomic units to become ~51.422 V/Angstrom in LAMMPS
   efield_au_native = Eh_native / (force->qelectron * a0_native);
-  // assuming 'si' units, efield_au_native = 4.359744650e-18 / (1.6021765e-19 * 0.529177210544 * 1e-10) = 51.4220629 V/Angstrom
 
   if (master) {
     open_socket();
   }
 
-  // makes sure that neighbor lists are re-built at each step
-  //neighbor->delay = 0;
-  //neighbor->every = 1;
-
-  // NEW: select RESPA level similar to fix efield (apply at outermost by default)
+  // select RESPA level similar to fix efield (apply at outermost by default)
   if (utils::strmatch(update->integrate_style, "^respa")) {
     auto *r = dynamic_cast<Respa *>(update->integrate);
     if (r) {
@@ -316,6 +312,25 @@ int FixMaxwellLink::read_bytes(char *&buf)
   return n;
 }
 
+
+bool FixMaxwellLink::try_read_header(char *hdr12)
+{
+  // Non-fatal read of 12-byte header. Returns false on clean EOF.
+  int n = ::read(sockfd, hdr12, MSGLEN);
+  if (n == 0) return false;
+  if (n < 0) error->one(FLERR, "Fix MaxwellLink: read() failed while reading header");
+
+  int got = n;
+  while (got < MSGLEN) {
+    int nr = ::read(sockfd, hdr12 + got, MSGLEN - got);
+    if (nr == 0) return false;
+    if (nr < 0) error->one(FLERR, "Fix MaxwellLink: read() failed while reading header");
+    got += nr;
+  }
+  hdr12[MSGLEN] = 0;
+  return true;
+}
+
 /* ---------------------------------------------------------------------- */
 
 static bool parse_dt_au_from_json(const char* s, int n, double& out_dt_au)
@@ -354,16 +369,17 @@ void FixMaxwellLink::build_additional_json(std::string& out,
         and also computing dipole self-energy term if needed.
   */
   ss << '{'
-     << "\"time_fs\":"   << t_fs
-     << ",\"time_au\":"<< t_fs * 41.3413745758
+     << "\"time_au\":"<< t_fs * 41.3413745758
      << ",\"mux_au\":"<< mu_global[0]
      << ",\"muy_au\":"<< mu_global[1]
      << ",\"muz_au\":"<< mu_global[2]
+     << ",\"mux_m_au\":"<< mu_global_midpoint[0]
+     << ",\"muy_m_au\":"<< mu_global_midpoint[1]
+     << ",\"muz_m_au\":"<< mu_global_midpoint[2]
      << ",\"energy_au\":"<< ke_au + pe_au
      << ",\"temp_K\":"<< tempK
      << ",\"pe_au\":" << pe_au
      << ",\"ke_au\":" << ke_au
-     << ",\"dmudt_au\":["<< dmudt_au[0] << ',' << dmudt_au[1] << ',' << dmudt_au[2] << "]"
      << '}';
   out = ss.str();
 }
@@ -405,9 +421,6 @@ void FixMaxwellLink::handshake_if_needed()
         dt_native_recv = dt_au_recv * timeau_native;
         // Force LAMMPS to use this dt on the master now
         const double prior = update->dt;
-        //update->dt = dt_native_recv;
-        // Make the integrator recompute its internal factors for the new dt
-        //update->integrate->reset_dt();
 
         update->update_time();
         update->dt = dt_native_recv;
@@ -433,6 +446,16 @@ void FixMaxwellLink::handshake_if_needed()
                update->dt);
       }
 
+      // finally, pre-calculate dipole info at this initial step
+      double ke_au = 0.0;
+      double tempK = -1.0;
+      calc_dipole_info(mu_global, dmu_dt_global, ke_au, tempK);
+
+      for (size_t i =0; i < 3; ++i) {
+        mu_global_prev[i] = mu_global[i];
+        dmu_dt_global_prev[i] = dmu_dt_global[i];
+      }
+
       initialized = 1;
 
       break;
@@ -445,6 +468,34 @@ void FixMaxwellLink::handshake_if_needed()
       return;
     }
   }
+}
+
+void FixMaxwellLink::broadcast_dt()
+{
+  // broadcast dt_native_recv to all ranks
+  double dtbuf = dt_native_recv;
+  MPI_Bcast(&dtbuf, 1, MPI_DOUBLE, 0, world);
+  if (comm->me != 0) {
+    dt_native_recv = dtbuf;
+    if (dt_native_recv > 0.0) {
+      // Force LAMMPS to use this dt on non-master ranks now
+      const double prior = update->dt;
+      update->update_time();
+      update->dt = dt_native_recv;
+      update->dt_default = 0;
+      if (true) update->integrate->reset_dt();
+      if (force->pair) force->pair->reset_dt();
+      for (auto &ifix : modify->get_fix_list()) ifix->reset_dt();
+      output->reset_dt();
+
+      if (comm->me == 1) { // rank 1 only
+        printf("[MaxwellLink] Non-master rank modified LAMMPS time step from %.15g to %.15g to match MaxwellLink dt!\n",
+               prior, update->dt);
+        printf("[MaxwellLink] Make sure all coupled simulations use this time step, after the modification, LAMMPS dt = %.15g!\n", update->dt);
+      }
+    }
+  }
+  dt_synced = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -495,9 +546,6 @@ void FixMaxwellLink::send_amp_vector(const std::string& extra)
   writebuffer((char*)&len, 4);
   if (len > 0) writebuffer(extra.data(), len);
 
-  //printf("[MaxwellLink] MPI rank %d Sent d(mu)/dt (a.u.): [%.6g, %.6g, %.6g]\n",
-  //       comm->me, dmu_dt_global[0], dmu_dt_global[1], dmu_dt_global[2]);
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -517,7 +565,12 @@ void FixMaxwellLink::initial_integrate(int /*vflag*/)
     handshake_if_needed();
   }
 
-  MPI_Barrier(world);
+  // broadcast dt if needed
+  if (dt_synced == 0) {
+    broadcast_dt();
+  }
+
+  // MPI_Barrier(world);
 
   if (master) {
 
@@ -541,11 +594,10 @@ void FixMaxwellLink::initial_integrate(int /*vflag*/)
         stop_requested = true;
         break;
       }
-      // ignore any other noise and keep reading
     }
   }
 
-  MPI_Barrier(world);
+  // MPI_Barrier(world);
 
   // --- after rank 0 has received POSDATA and set Eau_x/y/z ---
   double ebuf[3];
@@ -568,7 +620,7 @@ void FixMaxwellLink::initial_integrate(int /*vflag*/)
   ey_fac = efield_au_native * Eau_y;
   ez_fac = efield_au_native * Eau_z;
 
-  MPI_Barrier(world);
+  // MPI_Barrier(world);
 
   // compute PE. makes sure that it will be evaluated at next step
   modify->compute[modify->find_compute("thermo_pe")]->invoked_scalar = -1;
@@ -579,13 +631,9 @@ void FixMaxwellLink::initial_integrate(int /*vflag*/)
 
 void FixMaxwellLink::post_force(int vflag)
 {
+  if (!have_field) return; 
 
-  //if (!have_field) return;
-  // NEW: make sure E(t) is available for THIS timestep before applying forces
-  // ensure_field_for_current_step();
-  if (!have_field) return;  // graceful no-op if server asked us to stop
-
-  // Apply F = qE (constant field this step), mirroring fix_efield constant path.
+  // Apply F = qE (constant field this step)
   double **f = atom->f;
   double *q   = atom->q;
   int *mask   = atom->mask;
@@ -638,94 +686,104 @@ void FixMaxwellLink::min_post_force(int vflag)
 
 /* ---------------------------------------------------------------------- */
 
-void FixMaxwellLink::end_of_step()
+void FixMaxwellLink::calc_dipole_info(double *mu, double *dmu_dt, double &ke_au, double &tempK) 
 {
-  // TODO: Because MaxwellLink sends E(t+dt/2) to LAMMPS at the beginning of step t,
-  // and expect mu, dmu/dt at t+dt to be sent back at the end of step t,
-  // there is a half-step misalignment in time.
+  double dmu_dt_local[3];
+  double mu_local[3];
+  double dmu_dt_global_tmp[3];
+  double mu_global_tmp[3];
 
-  // With velocity verlet algorithm defined here, because E(t+dt/2) is used to compute F(t+dt/2),
-  // at this stage, x, and v are at t+dt/2, not t+dt yet.
-
-  // To be fully consistent, we should predict mu, and dmudt at t+dt based on x(t+dt/2) and v(t+dt/2).
-  // TODO prediction!
-
-  // Compute d(mu)/dt = sum q v  (convert v to atomic units), reduce, and reply.
-  // Reset local accumulator
   dmu_dt_local[0]=dmu_dt_local[1]=dmu_dt_local[2]=0.0;
-  dmu_dt_global[0]=dmu_dt_global[1]=dmu_dt_global[2]=0.0;
+  dmu_dt_global_tmp[0]=dmu_dt_global_tmp[1]=dmu_dt_global_tmp[2]=0.0;
+  mu_local[0]=mu_local[1]=mu_local[2]=0.0;
+  mu_global_tmp[0]=mu_global_tmp[1]=mu_global_tmp[2]=0.0;
 
   double **v = atom->v;
   double **x = atom->x;
   double *q  = atom->q;
   int *mask  = atom->mask;
   int nlocal = atom->nlocal;
+  int *type  = atom->type;
+  double *rmass = atom->rmass;
+
   if (igroup == atom->firstgroup) nlocal = atom->nfirst;
 
-  for (int i=0;i<nlocal;i++) {
-    if (!(mask[i] & groupbit)) continue;
-    // LAMMPS v units -> atomic units
-    dmu_dt_local[0] += q[i] * (v[i][0] * v_to_au);
-    dmu_dt_local[1] += q[i] * (v[i][1] * v_to_au);
-    dmu_dt_local[2] += q[i] * (v[i][2] * v_to_au);
-  }
-
-  //printf("[MaxwellLink] MPI rank %d local d(mu)/dt (a.u.): [%.6g, %.6g, %.6g] from %d atoms\n",
-  //       comm->me, dmu_dt_local[0], dmu_dt_local[1], dmu_dt_local[2], nlocal);
-  
-  MPI_Allreduce(dmu_dt_local, dmu_dt_global, 3, MPI_DOUBLE, MPI_SUM, world);
-
-
-  // calculate dipole moment vector; note that the coordinate should use the unwrapped, original coordinate
   imageint *image = atom->image;
   double unwrap[3];
 
-  mu_local[0]=mu_local[1]=mu_local[2]=0.0;
+  double ke_local = 0.0, ke_global = 0.0;
+  long   ngrp_local = 0, ngrp_global = 0;
 
   for (int i=0;i<nlocal;i++) {
     if (!(mask[i] & groupbit)) continue;
-    // LAMMPS v units -> atomic units
+    dmu_dt_local[0] += q[i] * (v[i][0] * v_to_au);
+    dmu_dt_local[1] += q[i] * (v[i][1] * v_to_au);
+    dmu_dt_local[2] += q[i] * (v[i][2] * v_to_au);
+
     domain->unmap(x[i], image[i], unwrap);
     mu_local[0] += q[i] * (unwrap[0] * x_to_au);
     mu_local[1] += q[i] * (unwrap[1] * x_to_au);
     mu_local[2] += q[i] * (unwrap[2] * x_to_au);
+
+    const double m = rmass ? rmass[i] : atom->mass[type[i]];
+    const double vv = v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2];
+    ke_local += 0.5 * m * vv;
+    ngrp_local++;
   }
 
-  MPI_Allreduce(mu_local, mu_global, 3, MPI_DOUBLE, MPI_SUM, world);
+  //MPI_Allreduce(dmu_dt_local, dmu_dt_global_tmp, 3, MPI_DOUBLE, MPI_SUM, world);
+  //MPI_Allreduce(mu_local, mu_global_tmp, 3, MPI_DOUBLE, MPI_SUM, world);
+  //MPI_Allreduce(&ke_local, &ke_global, 1, MPI_DOUBLE, MPI_SUM, world);
+  //MPI_Allreduce(&ngrp_local, &ngrp_global, 1, MPI_LONG,   MPI_SUM, world);
 
-  //printf("[MaxwellLink] Global d(mu)/dt (a.u.): [%.6g, %.6g, %.6g]\n",
-  //       dmu_dt_global[0], dmu_dt_global[1], dmu_dt_global[2]);
+  // replace the above four allreduce with a single allreduce
+  double allbuf_global[8];
+  double allbuf[8] = {dmu_dt_local[0], dmu_dt_local[1], dmu_dt_local[2],
+                        mu_local[0],    mu_local[1],    mu_local[2],
+                        ke_local,      (double)ngrp_local};
+  MPI_Allreduce(allbuf, allbuf_global, 8, MPI_DOUBLE, MPI_SUM, world);
+  for (size_t i = 0; i <3; ++i) {
+    dmu_dt_global_tmp[i] = allbuf_global[i];
+    mu_global_tmp[i]     = allbuf_global[i+3];
+  }
+  ke_global = allbuf_global[6];
+  ngrp_global = (long)(allbuf_global[7]);
+  
+  // copy info to output
+  for (size_t i = 0; i < 3; ++i) {
+    dmu_dt[i] = dmu_dt_global_tmp[i];
+    mu[i] = mu_global_tmp[i];
+  }
+  ke_au = ke_global / Eh_native; // convert to a.u.
 
-  // --- Kinetic energy (native) and count for DOF/temperature estimate
-  double ke_local = 0.0, ke_global = 0.0;
-  long   ngrp_local = 0, ngrp_global = 0;
-  {
-    double **v = atom->v;
-    int *type  = atom->type;
-    double *rmass = atom->rmass;
-    for (int i=0;i<nlocal;i++) {
-      if (!(mask[i] & groupbit)) continue;
-      const double m = rmass ? rmass[i] : atom->mass[type[i]];
-      const double vv = v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2];
-      ke_local += 0.5 * m * vv;
-      ngrp_local++;
-    }
-    MPI_Allreduce(&ke_local, &ke_global, 1, MPI_DOUBLE, MPI_SUM, world);
-    MPI_Allreduce(&ngrp_local, &ngrp_global, 1, MPI_LONG,   MPI_SUM, world);
+  const double dof = 3.0 * (double)ngrp_global;
+  tempK = (2.0 * ke_global) / (force->boltz * dof);
+}
+
+void FixMaxwellLink::end_of_step()
+{
+
+  for (size_t i = 0; i < 3; ++i) {
+    dmu_dt_global_prev[i] = dmu_dt_global[i];
+    mu_global_prev[i] = mu_global[i];
   }
 
-  // --- Potential energy (native) & temperature (K): use computes if present
+  double ke_au = 0.0;
   double tempK = -1.0;
+
+  calc_dipole_info(mu_global_midpoint, dmu_dt_global_midpoint, ke_au, tempK);
+
+  // MaxwellLink expects d(mu)/dt and mu at half a time step after E-field (force) evaluation
+  for (size_t i = 0; i < 3; ++i) {
+    dmu_dt_global[i] = 2.0 * dmu_dt_global_midpoint[i] - dmu_dt_global_prev[i];
+    mu_global[i] = 2.0 * mu_global_midpoint[i] - mu_global_prev[i];
+  }
+
 
   double pe_native = modify->compute[modify->find_compute("thermo_pe")]->compute_scalar();
 
-  const double dof = 3.0 * (double)ngrp_global;
-  if (tempK < 0.0 && dof > 0.0) tempK = (2.0 * ke_global) / (force->boltz * dof);
-
   // --- Convert requested fields to required units
-  const double ke_au = ke_global / Eh_native;
   const double pe_au = pe_native / Eh_native;
-  //const double pe_au = potconv * potconv;
 
   const double t_native = update->ntimestep * update->dt;
   const double t_fs     = t_native / force->femtosecond; // native -> femtoseconds
@@ -766,27 +824,7 @@ void FixMaxwellLink::end_of_step()
   }
 
   // All ranks wait for master to finish socket ops
-  MPI_Barrier(world);
+  //MPI_Barrier(world);
 
   have_field = 0;
 }
-
-
-bool FixMaxwellLink::try_read_header(char *hdr12)
-{
-  // Non-fatal read of 12-byte header. Returns false on clean EOF.
-  int n = ::read(sockfd, hdr12, MSGLEN);
-  if (n == 0) return false;
-  if (n < 0) error->one(FLERR, "Fix MaxwellLink: read() failed while reading header");
-
-  int got = n;
-  while (got < MSGLEN) {
-    int nr = ::read(sockfd, hdr12 + got, MSGLEN - got);
-    if (nr == 0) return false;
-    if (nr < 0) error->one(FLERR, "Fix MaxwellLink: read() failed while reading header");
-    got += nr;
-  }
-  hdr12[MSGLEN] = 0;
-  return true;
-}
-
