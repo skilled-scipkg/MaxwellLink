@@ -624,9 +624,13 @@ class ASEModel(DummyModel):
         amp = (self._charges.reshape(-1, 1) * v_au).sum(axis=0)
 
         # MaxwellLink sends E-field at time step n, expects amp at time step n+1/2.
-        # However, with velocity verlet, if E-field is sent at time step n, then both velocity and position are updated to step n 
+        # However, with velocity verlet, if E-field is sent at time step n, then both velocity and position are updated to step n
         # at the final stage of velocity verlet. Therefore, we need to do a simple linear extrapolation here to get amp at time step n+1/2.
-        self.dmudt_prev = self.dmudt_projected.copy() if self.dmudt_projected is not None else amp.copy()
+        self.dmudt_prev = (
+            self.dmudt_projected.copy()
+            if self.dmudt_projected is not None
+            else amp.copy()
+        )
         self.dmudt_middlepoint = amp.copy()
         self.dmudt_projected = 2.0 * self.dmudt_middlepoint - self.dmudt_prev
 
@@ -649,9 +653,13 @@ class ASEModel(DummyModel):
         """
 
         # MaxwellLink sends E-field at time step n, expects amp at time step n+1/2.
-        # However, with velocity verlet, if E-field is sent at time step n, then both velocity and position are updated to step n 
+        # However, with velocity verlet, if E-field is sent at time step n, then both velocity and position are updated to step n
         # at the final stage of velocity verlet. Therefore, we need to do a simple linear extrapolation here to get dipole at time step n+1/2.
-        self.dipole_prev = self.dipole_projected.copy() if self.dipole_projected is not None else self.forcewrap._cache_dipole_vec.copy()
+        self.dipole_prev = (
+            self.dipole_projected.copy()
+            if self.dipole_projected is not None
+            else self.forcewrap._cache_dipole_vec.copy()
+        )
         self.dipole_middlepoint = self.forcewrap._cache_dipole_vec.copy()
         self.dipole_projected = 2.0 * self.dipole_middlepoint - self.dipole_prev
 

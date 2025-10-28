@@ -201,7 +201,9 @@ class SingleModeSimulation(DummyEMSimulation):
 
         # we need True in at least one axis
         if not np.any(self.axis):
-            raise ValueError("At least one coupling axis (x, y, or z) must be specified.")
+            raise ValueError(
+                "At least one coupling axis (x, y, or z) must be specified."
+            )
 
         self.drive = drive if drive is not None else (lambda _: 0.0)
         if isinstance(self.drive, (int, float)):
@@ -255,7 +257,9 @@ class SingleModeSimulation(DummyEMSimulation):
             self.dipole_baseline = self.dipole.copy()
             self.dipole -= self.dipole_baseline
             self.dipole_prev = self.dipole.copy()
-            print("[SingleModeCavity] Shifted dipole baseline by:", self.dipole_baseline)
+            print(
+                "[SingleModeCavity] Shifted dipole baseline by:", self.dipole_baseline
+            )
 
         self.record_history = bool(record_history)
         if self.record_history:
@@ -328,7 +332,9 @@ class SingleModeSimulation(DummyEMSimulation):
             responses = self.hub.step_barrier(requests)
         return responses
 
-    def _calc_acceleration(self, time: float, mu: np.ndarray, qc: np.ndarray) -> np.ndarray:
+    def _calc_acceleration(
+        self, time: float, mu: np.ndarray, qc: np.ndarray
+    ) -> np.ndarray:
         """
         Calculate the cavity mode acceleration at the given time.
 
@@ -408,7 +414,9 @@ class SingleModeSimulation(DummyEMSimulation):
             wrapper.additional_data_history[-1]["energy_au"]
             for wrapper in self.wrappers
         )
-        total_energy = np.sum((kinetic_energy + potential_energy) * self.axis) + e_molecule
+        total_energy = (
+            np.sum((kinetic_energy + potential_energy) * self.axis) + e_molecule
+        )
         return total_energy
 
     def _calc_dipole_vec(self) -> np.ndarray:
@@ -509,8 +517,8 @@ class SingleModeSimulation(DummyEMSimulation):
 
         # updating E-field at half step using interpolated dipole
         dipole = self.dipole + 0.5 * self.dt * (
-                1.5 * self.dmudt - 0.5 * self.dmudt_prev
-            )
+            1.5 * self.dmudt - 0.5 * self.dmudt_prev
+        )
         efield_vec = self._calc_effective_efield(
             qc_prev + 0.5 * self.dt * pc_half, dipole
         )
@@ -582,7 +590,7 @@ class SingleModeSimulation(DummyEMSimulation):
                 print(
                     f"[SingleModeCavity] Completed {idx + 1}/{steps} [{(idx + 1) / steps * 100:.1f}%] steps, time/step: {avg_time_per_step:.2e} seconds, remaining time: {remaining:.2f} seconds."
                 )
-        
+
         # close the hub
         if self.hub is not None:
             self.hub.stop()

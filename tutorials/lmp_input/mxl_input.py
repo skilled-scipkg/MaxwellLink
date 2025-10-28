@@ -1,6 +1,5 @@
 import numpy as np
 import maxwelllink as mxl
-from maxwelllink import sockets as mxs
 
 address = "socket_cavmd"
 hub = mxl.SocketHub(unixsocket=address, timeout=10.0, latency=1e-5)
@@ -28,7 +27,7 @@ angstrom_to_au = 1.8897259886
 # use the info of the water molecule to construct unexcited photon state
 # z-axis info is not used since the cavity is only coupled to x and y directions
 dipole_initial = [16.704, -18.040, 0.0]
-dmudt_initial = [-0.00355972,  0.01098518, 0.0]
+dmudt_initial = [-0.00355972, 0.01098518, 0.0]
 qc_initial = -np.array(dipole_initial) * coupling_strength / frequency_au**2
 
 sim = mxl.SingleModeSimulation(
