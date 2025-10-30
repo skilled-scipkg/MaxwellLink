@@ -8,7 +8,7 @@ echo "Preparing LAMMPS input files with port $PORT..."
 
 # modify in_mxl.lmp to set the correct port number
 cp in_mxl.lmp in.lmp
-sed -i '' "s/PORT_NUMBER/$PORT/g" in.lmp
+sed -i -e "s/PORT_NUMBER/$PORT/g" in.lmp
 
 # check whether lmp_mxl command is available
 if ! command -v lmp_mxl &> /dev/null

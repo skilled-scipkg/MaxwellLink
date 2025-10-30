@@ -128,7 +128,7 @@ class LaserDrivenSimulation(DummyEMSimulation):
             Constant drive term or function ``drive(t_au)``.
         coupling_axis : str, default: "xyz"
             Component(s) of the molecular dipole used for coupling.
-        hub : SocketHub, optional
+        hub : maxwelllink.sockets.SocketHub, optional
             Socket hub shared by all socket-mode molecules.
         record_history : bool, default: True
             Record time, field, velocity, drive, and molecular response histories.

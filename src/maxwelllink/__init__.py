@@ -27,6 +27,7 @@ __all__ = [
     "Molecule",
     "SingleModeSimulation",
     "Vector3",
+    "LaserDrivenSimulation",
 ]
 
 
@@ -92,6 +93,15 @@ def __getattr__(name):
     }:
         from .em_solvers.single_mode_cavity import (
             SingleModeSimulation,
+        )
+
+        return locals()[name]
+    
+    if name in {
+        "LaserDrivenSimulation",
+    }:
+        from .em_solvers.laser_driven import (
+            LaserDrivenSimulation,
         )
 
         return locals()[name]
