@@ -2,8 +2,8 @@
 Laser driven dynamics for MaxwellLink.
 
 This module defines a lightweight laser driven simulator that applies a user
-defined driven pulse to excited the molecules. The simulation runs entirely 
-in atomic units and can operate with both socket-connected and embedded (non-socket) 
+defined driven pulse to excited the molecules. The simulation runs entirely
+in atomic units and can operate with both socket-connected and embedded (non-socket)
 molecular drivers.
 """
 
@@ -275,7 +275,7 @@ class LaserDrivenSimulation(DummyEMSimulation):
         efield_vec = np.ones(3, dtype=float) * self._evaluate_drive(time_au)
         efield_vec *= self.axis
         return efield_vec
-    
+
     def _calc_dipole_vec(self) -> np.ndarray:
         """
         Calculate the total molecular dipole vector.
