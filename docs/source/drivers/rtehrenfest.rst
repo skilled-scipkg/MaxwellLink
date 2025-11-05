@@ -102,7 +102,7 @@ Parameters
    * - ``num_threads``
      - CPU threads assigned to `Psi4 <https://psicode.org/>`_. Default: ``1``.
    * - ``electron_propagation``
-     - Electronic propagator: ``etrs`` or ``pc``. Default: ``etrs``.
+     - Electronic propagator: ``etrs`` or ``pc``. Default: ``pc``.
    * - ``threshold_pc``
      - Predictor–corrector convergence threshold (used when
        ``electron_propagation=pc``). Default: ``1e-6``.

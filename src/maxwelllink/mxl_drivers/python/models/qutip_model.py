@@ -245,7 +245,7 @@ class QuTiPModel(DummyModel):
         module: Optional[str] = None,
         kwargs: str = "",
         # --- finite-difference or analytical dmu/dt ---
-        fd_dmudt: bool = True,
+        fd_dmudt: bool = False,
         # --- Common controls ---
         verbose: bool = False,
         checkpoint: bool = False,
@@ -270,9 +270,9 @@ class QuTiPModel(DummyModel):
             ``kwargs=omega=0.242,mu12=187,orientation=2,pe=1e-4``.
             All key value pairs not recognized will be treated as user module
             parameters if ``module`` is not ``None``.
-        fd_dmudt : bool, default: True
+        fd_dmudt : bool, default: False
             Whether to use finite-difference :math:`\\mathrm{d}\\mu/\\mathrm{d}t` for current
-            density computation. Default is ``True``. If ``False``, an analytical
+            density computation. Default is ``False``. If ``False``, an analytical
             derivative will be used if available.
         verbose : bool, default: False
             Whether to print verbose output. Default is ``False``.
@@ -343,9 +343,10 @@ class QuTiPModel(DummyModel):
             )
 
         self.fd_dmudt = bool(fd_dmudt)
-        print(
-            f"[QuTiPModel] Using {'finite-difference' if self.fd_dmudt else 'analytical'} dmu/dt for current density."
-        )
+        if self.verbose:
+            print(
+                f"[QuTiPModel] Using {'finite-difference' if self.fd_dmudt else 'analytical'} dmu/dt for current density."
+            )
 
         # internal state
         self.H0 = None
@@ -409,7 +410,7 @@ class QuTiPModel(DummyModel):
         rho0 = cfg.get("rho0", None)
         if rho0 is None:
             print(
-                "[QuTiPModel {self.molecule_id}] Warning: No initial state rho0 provided, using ground state."
+                f"[QuTiPModel {self.molecule_id}] Warning: No initial state rho0 provided, using ground state."
             )
             # try ground state projector of H0
             evals, evecs = self.H0.eigenstates()

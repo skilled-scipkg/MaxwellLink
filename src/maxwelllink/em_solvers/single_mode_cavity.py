@@ -387,12 +387,16 @@ class SingleModeSimulation(DummyEMSimulation):
         # print("In Function, Effective E-field vector:", efield_vec)
         return efield_vec
 
-    def _calc_energy(self, mu) -> float:
+    def _calc_energy(self, pc, qc, mu) -> float:
         """
         Calculate the total energy of the cavity + molecular system.
 
         Parameters
         ----------
+        pc : float
+            Current cavity mode momentum.
+        qc : float
+            Current cavity mode coordinate.
         mu : float
             Current total molecular dipole along the coupling axis.
 
@@ -401,10 +405,9 @@ class SingleModeSimulation(DummyEMSimulation):
         float
             Total energy of the cavity + molecular system.
         """
-        kinetic_energy = 0.5 * self.pc**2
+        kinetic_energy = 0.5 * pc**2
         potential_energy = (
-            0.5 * (self.frequency**2) * self.qc**2
-            + self.qc * self.coupling_strength * mu
+            0.5 * (self.frequency**2) * qc**2 + qc * self.coupling_strength * mu
         )
         if self.include_dse:
             potential_energy += (
@@ -552,7 +555,11 @@ class SingleModeSimulation(DummyEMSimulation):
             self.pc_history.append(self.pc.copy())
             self.drive_history.append(self._evaluate_drive(self.time))
             self.molecule_response_history.append(self.dmudt.copy())
-            self.energy_history.append(self._calc_energy(self.dipole))
+            # ensure dipole and pc, qc are at the same time step (n+1)
+            dipole_next = self.dipole + 0.5 * self.dt * (
+                1.5 * self.dmudt - 0.5 * self.dmudt_prev
+            )
+            self.energy_history.append(self._calc_energy(self.pc, self.qc, dipole_next))
 
     def run(self, until: Optional[float] = None, steps: Optional[int] = None):
         """

@@ -168,7 +168,7 @@ population and the simulation time in atomic units.
    time_au = np.array([entry["time_au"] for entry in tls.additional_data_history])
 
 We can then compare the electronic excited-state trajectory to the analytical golden-rule result as shown in
-:doc:`tutorials/notebook/socket_tls_workflow`.
+:doc:`tutorials/notebook/meep_tls_spontaneous_emission`.
 
 MPI execution
 -------------

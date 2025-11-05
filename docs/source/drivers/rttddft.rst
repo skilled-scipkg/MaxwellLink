@@ -101,7 +101,7 @@ Parameters
      - Number of threads assigned to `Psi4 <https://psicode.org/>`_. Default: ``1``.
    * - ``electron_propagation``
      - Electronic propagator: ``etrs`` (enforced time-reversal symmetry) or
-       ``pc`` (predictor–corrector). Default: ``etrs``.
+       ``pc`` (predictor–corrector). Default: ``pc``.
    * - ``threshold_pc``
      - Convergence threshold for the predictor–corrector scheme. Default:
        ``1e-6``.

@@ -51,7 +51,6 @@ Non-socket mode
        driver="qutip",
        driver_kwargs={
            "preset": "tls",
-           "fd_dmudt": False,
            "preset_kwargs": 
                "omega=0.242,mu12=187,orientation=2,pe_initial=1e-3,\
                 gamma_relax=0.0,gamma_dephase=0.0",
@@ -84,8 +83,8 @@ Parameters
      - Parameters forwarded to ``build_model`` when using the custom preset. Default:
        ``""``.
    * - ``fd_dmudt``
-     - When ``True`` the driver evaluates :math:`\mathrm{d}\mu/\mathrm{d}t`
-       through finite differences instead of analytical evaluation. Default: ``True``.
+     - When ``False`` the driver evaluates :math:`\mathrm{d}\mu/\mathrm{d}t`
+       through finite differences instead of analytical evaluation. Default: ``False``.
    * - ``verbose``
      - When ``True`` the driver prints initialization details and time-step diagnostics.
        Default: ``False``.

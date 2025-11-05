@@ -64,7 +64,7 @@ class RTTDDFTModel(DummyModel):
         dft_grid_name: str = "SG0",
         dft_radial_points: int = -1,
         dft_spherical_points: int = -1,
-        electron_propagation: str = "etrs",
+        electron_propagation: str = "pc",
         threshold_pc: float = 1e-6,
     ):
         """
@@ -121,7 +121,7 @@ class RTTDDFTModel(DummyModel):
             Number of radial points in the DFT grid. ``-1`` uses the Psi4 default.
         dft_spherical_points : int, default: -1
             Number of spherical points in the DFT grid. ``-1`` uses the Psi4 default.
-        electron_propagation : str, default: "etrs"
+        electron_propagation : str, default: "pc"
             The electron propagation scheme to use. Options are ``"etrs"`` (Enforced
             Time-Reversal Symmetry) or ``"pc"`` (Predictor-Corrector). Default is ``"pc"``.
         threshold_pc : float, default: 1e-6
@@ -361,22 +361,25 @@ class RTTDDFTModel(DummyModel):
         self.mu_ints = [np.asarray(m) for m in mints.ao_dipole()]
         if self.remove_permanent_dipole:
             # calculate the expectation value of the dipole moment in the ground state
-            mu_x0 = np.einsum("pq,pq->", self.mu_ints[0], self.Da + self.Db).real
-            mu_y0 = np.einsum("pq,pq->", self.mu_ints[1], self.Da + self.Db).real
-            mu_z0 = np.einsum("pq,pq->", self.mu_ints[2], self.Da + self.Db).real
+            mu_x0 = np.einsum("pq,qp->", self.mu_ints[0], self.Da + self.Db).real
+            mu_y0 = np.einsum("pq,qp->", self.mu_ints[1], self.Da + self.Db).real
+            mu_z0 = np.einsum("pq,qp->", self.mu_ints[2], self.Da + self.Db).real
             Identity = np.eye(self.mu_ints[0].shape[0])
             self.mu_ints = [
                 self.mu_ints[0] - mu_x0 * Identity / np.trace(self.Da + self.Db),
                 self.mu_ints[1] - mu_y0 * Identity / np.trace(self.Da + self.Db),
                 self.mu_ints[2] - mu_z0 * Identity / np.trace(self.Da + self.Db),
             ]
-            mu_x0_new = np.einsum("pq,pq->", self.mu_ints[0], self.Da + self.Db).real
-            mu_y0_new = np.einsum("pq,pq->", self.mu_ints[1], self.Da + self.Db).real
-            mu_z0_new = np.einsum("pq,pq->", self.mu_ints[2], self.Da + self.Db).real
+            mu_x0_new = np.einsum("pq,qp->", self.mu_ints[0], self.Da + self.Db).real
+            mu_y0_new = np.einsum("pq,qp->", self.mu_ints[1], self.Da + self.Db).real
+            mu_z0_new = np.einsum("pq,qp->", self.mu_ints[2], self.Da + self.Db).real
             if self.verbose:
                 print(
                     f"[molecule {self.molecule_id}] Removed permanent dipole moment: mu_x0 = {mu_x0:.6f} -> {mu_x0_new:.6f}, mu_y0 = {mu_y0:.6f} -> {mu_y0_new:.6f}, mu_z0 = {mu_z0:.6f} -> {mu_z0_new:.6f} (a.u.)"
                 )
+            self.mu_x0 = mu_x0
+            self.mu_y0 = mu_y0
+            self.mu_z0 = mu_z0
 
         # V_xc machinery: VBase from the SCF wavefunction (already configured with functional & grid)
         # We'll reuse this at each step to (re)build V_xc(Da,Db) on the grid efficiently.
@@ -427,7 +430,8 @@ class RTTDDFTModel(DummyModel):
                 Fa = self.H + Jtot - self.alpha_hfx * K + Vxc
             else:
                 Fa = self.H + Jtot + Vxc
-            Fb = Fa
+            # Deep copy for RKS is necessary to avoid shared references
+            Fb = Fa.copy()
         else:
             # UKS: J from total density Da+Db; K channel-specific for hybrids
             Dtot = Da_np + Db_np
@@ -448,6 +452,11 @@ class RTTDDFTModel(DummyModel):
         if V_ext is not None:
             Fa += V_ext
             Fb += V_ext
+
+        # symmetrize Fock matrices to avoid numerical issues
+        Fa = 0.5 * (Fa + Fa.conj().T)
+        Fb = 0.5 * (Fb + Fb.conj().T)
+
         return Fa, Fb
 
     def _build_J_psi4(self, P):
@@ -565,17 +574,21 @@ class RTTDDFTModel(DummyModel):
         Jtot = self._build_J_psi4(Dtot)
         # V_xc energy from VBase quadrature (if available)
         Exc = 0.0
-        try:
-            Exc = float(self.Vpot.quadrature_values().get("FUNCTIONAL", 0.0))
-        except Exception:
-            pass
-        Ecoul = 0.5 * np.einsum("pq,pq->", Jtot, Dtot).real
-        Eone = np.einsum("pq,pq->", self.H, Dtot).real
+        if self.alpha_hfx < 1.0:
+            try:
+                Exc = float(self.Vpot.quadrature_values().get("FUNCTIONAL", 0.0))
+            except Exception:
+                if self.verbose:
+                    print(
+                        "Warning: Failed to retrieve V_xc quadrature energy from Psi4 V_potential (energy might be inaccurate)."
+                    )
+        Ecoul = 0.5 * np.einsum("pq,qp->", Jtot, Dtot).real
+        Eone = np.einsum("pq,qp->", self.H, Dtot).real
         ExHF = 0.0
         if self.alpha_hfx > 0.0:
             if self.is_restricted:
                 K = self._build_K_psi4(self.Da)
-                ExHF = -self.alpha_hfx * np.einsum("pq,pq->", K, self.Da).real
+                ExHF = -self.alpha_hfx * np.einsum("pq,qp->", K, self.Da).real
             else:
                 Ka = self._build_K_psi4(self.Da)
                 Kb = self._build_K_psi4(self.Db)
@@ -583,11 +596,13 @@ class RTTDDFTModel(DummyModel):
                     -self.alpha_hfx
                     * 0.5
                     * (
-                        np.einsum("pq,pq->", Ka, self.Da)
-                        + np.einsum("pq,pq->", Kb, self.Db)
+                        np.einsum("pq,qp->", Ka, self.Da)
+                        + np.einsum("pq,qp->", Kb, self.Db)
                     ).real
                 )
         Etot = Eone + Ecoul + ExHF + Exc + self.Enuc + self.kinEnuc
+
+        # Etot = np.einsum("pq,qp->", self.H + self.Fa, Da_np).real
 
         # electronic contribution to dipole moment
         mu_x = -np.trace(Dtot @ self.mu_ints[0]).real
@@ -634,9 +649,9 @@ class RTTDDFTModel(DummyModel):
         if self.engine == "psi4":
             # calculate the effective dipole matrix due to the coupling with the external E-field; minus sign for e = -1
             V_ext = (
-                -self.mu_ints[0] * effective_efield_vec[0]
-                - self.mu_ints[1] * effective_efield_vec[1]
-                - self.mu_ints[2] * effective_efield_vec[2]
+                +self.mu_ints[0] * effective_efield_vec[0]
+                + self.mu_ints[1] * effective_efield_vec[1]
+                + self.mu_ints[2] * effective_efield_vec[2]
             )
 
             # sub-step the RT-TDDFT propagation if needed
@@ -712,6 +727,10 @@ class RTTDDFTModel(DummyModel):
                     self.Da = self.X @ DaO @ self.X.T
                     self.Db = self.X @ DbO @ self.X.T
 
+                # symmetrize densities to avoid numerical issues
+                self.Da = 0.5 * (self.Da + self.Da.conj().T)
+                self.Db = 0.5 * (self.Db + self.Db.conj().T)
+
                 # Rebuild KS matrices at new time (adiabatic TDDFT)
                 self.Fa, self.Fb = self._build_KS_psi4(
                     self.Da, self.Db, self.is_restricted, V_ext=V_ext
@@ -759,9 +778,9 @@ class RTTDDFTModel(DummyModel):
         if self.engine == "psi4":
             # calculate the effective dipole matrix due to the coupling with the external E-field; minus sign for e = -1
             V_ext = (
-                -self.mu_ints[0] * effective_efield_vec[0]
-                - self.mu_ints[1] * effective_efield_vec[1]
-                - self.mu_ints[2] * effective_efield_vec[2]
+                +self.mu_ints[0] * effective_efield_vec[0]
+                + self.mu_ints[1] * effective_efield_vec[1]
+                + self.mu_ints[2] * effective_efield_vec[2]
             )
 
             # sub-step the RT-TDDFT propagation if needed
@@ -883,6 +902,10 @@ class RTTDDFTModel(DummyModel):
                     self.Fb = Fb_future.copy()
                     self.Fa_halfprev = self.U @ FaO_halffuture @ self.U.T
                     self.Fb_halfprev = self.U @ FbO_halffuture @ self.U.T
+
+                # symmetrize densities to avoid numerical issues
+                self.Da = 0.5 * (self.Da + self.Da.conj().T)
+                self.Db = 0.5 * (self.Db + self.Db.conj().T)
 
                 # Energetics and dipole info analysis
                 Etot, dip_vec = self._energy_dipole_analysis_psi4(self.Da, self.Db)
@@ -1098,7 +1121,9 @@ class RTTDDFTModel(DummyModel):
 
     # ------------ standalone functions for debugging and testing --------------
 
-    def _propagate_full_rt_tddft(self, nsteps=100, effective_efield_vec=np.zeros(3)):
+    def _propagate_full_rt_tddft(
+        self, nsteps=100, effective_efield_vec=np.zeros(3), savefile=True
+    ):
         """
         Standalone function to propagate the RT-TDDFT for a given number of steps.
 
@@ -1113,6 +1138,17 @@ class RTTDDFTModel(DummyModel):
         effective_efield_vec : array-like of float, shape (3,), optional
             Effective electric field vector received from FDTD in the form
             ``[E_x, E_y, E_z]``. Default is ``[0.0, 0.0, 0.0]``.
+        savefile : bool, default: True
+            Whether to save the energy and dipole data to a file after propagation.
+            Default is True.
+
+        Returns
+        -------
+        tuple
+            ``(times, energies, dipoles)``, where ``times`` is a NumPy array of time
+            points (in a.u.), ``energies`` is a NumPy array of total energies (in Hartree),
+            and ``dipoles`` is a NumPy array of shape ``(nsteps, 3)`` containing dipole moments
+            (in a.u.) at each time step.
         """
 
         for idx in range(nsteps):
@@ -1126,14 +1162,17 @@ class RTTDDFTModel(DummyModel):
         dipoles = np.array(self.dipoles)
         energies = np.array(self.energies)
         times = np.array(self.times)
-        np.savetxt(
-            "rt_tddft_energy_dipoles_%d.txt" % self.molecule_id,
-            np.column_stack((times, energies, dipoles)),
-            header="Time(a.u.)  Energy(a.u.)  mu_x(a.u.)  mu_y(a.u.)  mu_z(a.u.)",
-            fmt="%.10E %.10E %.10E %.10E %.10E",
-        )
+        if savefile:
+            np.savetxt(
+                "rt_tddft_energy_dipoles_%d.txt" % self.molecule_id,
+                np.column_stack((times, energies, dipoles)),
+                header="Time(a.u.)  Energy(a.u.)  mu_x(a.u.)  mu_y(a.u.)  mu_z(a.u.)",
+                fmt="%.10E %.10E %.10E %.10E %.10E",
+            )
+            print("RT-TDDFT data saved to disk.")
+        return times, energies, dipoles
 
-    def _get_lr_tddft_spectrum(self, states=20, tda=False):
+    def _get_lr_tddft_spectrum(self, states=20, tda=False, savefile=True):
         """
         Standalone function to compute the linear absorption spectrum of molecules using
         the linear-response TDDFT (LR-TDDFT) method.
@@ -1147,6 +1186,16 @@ class RTTDDFTModel(DummyModel):
         tda : bool, default: False
             Whether to use the Tamm–Dancoff approximation (TDA). Default is False
             (full TDDFT). ``0 =`` full TDDFT, ``1 =`` TDA.
+        savefile : bool, default: True
+            Whether to save the excitation energies and oscillator strengths to a file.
+            Default is True.
+
+        Returns
+        -------
+        tuple
+            ``(poles, oscillator_strengths, res)``, where ``poles`` is a NumPy array of
+            excitation energies (in Hartree), ``oscillator_strengths`` is a NumPy array of
+            oscillator strengths, and ``res`` is the full response dictionary from Psi4.
         """
 
         if self.engine == "psi4":
@@ -1164,16 +1213,20 @@ class RTTDDFTModel(DummyModel):
             oscillator_strengths = (2.0 / 3.0) * poles * mu2
 
             # save to file
-            with open("psi4_lrtddft_output_id_%d.txt" % self.molecule_id, "w") as f:
-                f.write("# Excitation energies (eV), oscillator strengths\n")
-                for p, e in zip(poles, oscillator_strengths):
-                    f.write(f"{p*27.211399} {e}\n")
+            if savefile:
+                with open("psi4_lrtddft_output_id_%d.txt" % self.molecule_id, "w") as f:
+                    f.write("# Excitation energies (eV), oscillator strengths\n")
+                    for p, e in zip(poles, oscillator_strengths):
+                        f.write(f"{p*27.211399} {e}\n")
 
             # print to screen
             # set numpy print precision
             np.set_printoptions(precision=6, suppress=True)
             print("Energy (eV):", poles * 27.211399)
             print("Oscillator strengths:", oscillator_strengths)
+
+            # also return the arrays
+            return poles, oscillator_strengths, res
 
 
 if __name__ == "__main__":

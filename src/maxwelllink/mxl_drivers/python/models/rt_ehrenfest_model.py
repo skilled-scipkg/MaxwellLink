@@ -65,7 +65,7 @@ class RTEhrenfestModel(RTTDDFTModel):
         dft_grid_name: str = "SG0",
         dft_radial_points: int = -1,
         dft_spherical_points: int = -1,
-        electron_propagation: str = "etrs",
+        electron_propagation: str = "pc",
         threshold_pc: float = 1e-6,
         # ---- control of Ehrenfest dynamics ----
         force_type: str = "ehrenfest",
@@ -117,7 +117,7 @@ class RTEhrenfestModel(RTTDDFTModel):
             Number of radial grid points (Psi4 default if negative).
         dft_spherical_points : int, default: -1
             Number of angular grid points (Psi4 default if negative).
-        electron_propagation : str, default: "etrs"
+        electron_propagation : str, default: "pc"
             Electron propagation scheme. Options: ``"etrs"`` or ``"pc"``.
         threshold_pc : float, default: 1e-6
             Convergence threshold for predictor–corrector propagation.
@@ -457,9 +457,9 @@ class RTEhrenfestModel(RTTDDFTModel):
         V_ext = None
         if effective_efield_vec is not None:
             V_ext = (
-                -self.mu_ints[0] * effective_efield_vec[0]
-                - self.mu_ints[1] * effective_efield_vec[1]
-                - self.mu_ints[2] * effective_efield_vec[2]
+                +self.mu_ints[0] * effective_efield_vec[0]
+                + self.mu_ints[1] * effective_efield_vec[1]
+                + self.mu_ints[2] * effective_efield_vec[2]
             )
         self.Fa, self.Fb = self._build_KS_psi4(
             self.Da, self.Db, self.is_restricted, V_ext=V_ext
@@ -508,9 +508,9 @@ class RTEhrenfestModel(RTTDDFTModel):
         mu_ints = [np.asarray(m) for m in mints.ao_dipole()]
 
         if self.remove_permanent_dipole:
-            mu_x0 = np.einsum("pq,pq->", mu_ints[0], self.Da + self.Db).real
-            mu_y0 = np.einsum("pq,pq->", mu_ints[1], self.Da + self.Db).real
-            mu_z0 = np.einsum("pq,pq->", mu_ints[2], self.Da + self.Db).real
+            mu_x0 = self.mu_x0
+            mu_y0 = self.mu_y0
+            mu_z0 = self.mu_z0
             Iden = np.eye(mu_ints[0].shape[0])
             trD = np.trace(self.Da + self.Db)
             mu_ints = [

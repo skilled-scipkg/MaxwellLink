@@ -12,8 +12,10 @@ Single-Mode Cavity
 .. toctree::
    :maxdepth: 1
 
-   notebook/single_mode_tls.ipynb
-   notebook/vsc_cavmd.ipynb
+   notebook/singlemode_tls.ipynb
+   notebook/singlemode_esc.ipynb
+   notebook/singlemode_many_drivers.ipynb
+   notebook/singlemode_vsc.ipynb
 
 MEEP FDTD
 ---------
@@ -21,4 +23,4 @@ MEEP FDTD
 .. toctree::
    :maxdepth: 1
 
-   notebook/socket_tls_workflow.ipynb
+   notebook/meep_tls_spontaneous_emission.ipynb
