@@ -48,6 +48,7 @@ def test_rteh_ase_bomd_comparison(n_run=10, plotting=False):
         homo_to_lumo=False,
         force_type="bo",
         partial_charges=[1.0, -1.0, 0.0],
+        electron_propagation="etrs",
     )
     model_rt.initialize(dt_new=10.0, molecule_id=0)
     for i in range(n_run):
@@ -115,6 +116,7 @@ def test_rteh_rtdynamics_ase_bomd_comparison(n_run=10, plotting=False):
         n_elec_per_fock=10,
         homo_to_lumo=False,
         force_type="ehrenfest",
+        electron_propagation="etrs",
     )
     model_rt.initialize(dt_new=1.0, molecule_id=0)
     for i in range(n_run):
