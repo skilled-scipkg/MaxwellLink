@@ -231,4 +231,3 @@ src/maxwelllink/mxl_drivers/python/models/rttddft_pyscf_model.py*
 setup.py*
 src/maxwelllink/sockets/_sockets_cpp.cpp
 *.bak
-tutorials/qutip_input
