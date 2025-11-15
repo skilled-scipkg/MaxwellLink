@@ -20,6 +20,7 @@ from maxwelllink.sockets import SocketHub, am_master, mpi_bcast_from_master
 from maxwelllink.units import FS_TO_AU
 from maxwelllink.mxl_drivers.python.models import __drivers__
 
+from collections import deque
 
 @dataclass
 class Vector3:
@@ -53,6 +54,7 @@ class Molecule:
         init_payload: Optional[Dict] = None,
         driver_kwargs: Optional[Dict] = None,
         rescaling_factor: float = 1.0,
+        store_additional_data: bool = True,
     ):
         """
         Parameters
@@ -77,6 +79,8 @@ class Molecule:
             Keyword arguments passed to the selected driver in non-socket mode.
         rescaling_factor : float, default: 1.0
             Rescaling factor for polarization.
+        store_additional_data : bool, default: True
+            Whether to store additional data history as a growing list (if True) or only keep the latest five frames (if False).
 
         Raises
         ------
@@ -113,6 +117,10 @@ class Molecule:
         # reserve for sources and additional data history
         self.sources = []
         self.additional_data_history = []
+        if not store_additional_data:
+            # use a deque to limit memory usage: if thousands of molecules are attached, 
+            # perhaps we don't want to store too much history)
+            self.additional_data_history = deque(maxlen=5)
 
         if self.dimensions not in (1, 2, 3) and self.dimensions is not None:
             raise ValueError("Molecule only supports 1D, 2D and 3D simulations.")

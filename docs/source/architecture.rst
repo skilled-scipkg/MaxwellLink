@@ -41,7 +41,7 @@ SocketHub
 Abstract Molecule
 -----------------
 
-``Molecule`` provides a unified interface for constructing molecular 
+``Molecule`` (:mod:`maxwelllink.molecule.molecule`) provides a unified interface for constructing molecular 
 drivers for both socket communications and non-socket (single-process) runs. Pass
 ``hub=SocketHub(...)`` to connect to an external driver, or ``driver="..."`` (and
 ``driver_kwargs``) to instantiate the model locally. Every molecule records
