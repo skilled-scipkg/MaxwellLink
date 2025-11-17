@@ -489,7 +489,7 @@ class _ClientState:
     extras: dict = field(default_factory=dict)
 
 
-def get_available_host_port(localhost=True):
+def get_available_host_port(localhost=True, save_to_file=None) -> Tuple[str, int]:
     """
     Ask the OS for an available localhost TCP port.
 
@@ -497,6 +497,10 @@ def get_available_host_port(localhost=True):
     ----------
     localhost : bool, default: True
         If True, bind to the localhost interface ("127.0.0.1"). If False, bind to all interfaces ("0.0.0.0").
+
+    save_to_file : str or None, default: None
+        If provided, save the selected host and port to the given file with filename provided by `save_to_file`.
+        The first line contains the host, and the second line contains the port.
 
     Returns
     -------
@@ -513,6 +517,12 @@ def get_available_host_port(localhost=True):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as tmp:
             tmp.connect(("8.8.8.8", 80))
             ip = tmp.getsockname()[0]
+    
+    if am_master():
+        # save host and port number to a file so mxl_driver can read it
+        if save_to_file is not None:
+            with open(save_to_file, "w") as f:
+                f.write(f"{ip}\n{port}\n")
             
     return ip, port 
 
