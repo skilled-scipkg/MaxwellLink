@@ -555,7 +555,9 @@ class SingleModeSimulation(DummyEMSimulation):
         # this interpolation is not very accurate
         # dipole = self.dipole + 0.5 * self.dt * (1.5 * self.dmudt - 0.5 * self.dmudt_prev)
         # the following expression is accurate to the order of dt^4
-        dipole = self.dipole_prev + self.dt * (9.0 / 8.0 * self.dmudt + 3.0 / 8.0 * self.dmudt_prev)
+        dipole = self.dipole_prev + self.dt * (
+            9.0 / 8.0 * self.dmudt + 3.0 / 8.0 * self.dmudt_prev
+        )
 
         efield_vec = self._calc_effective_efield(
             qc_prev + 0.5 * self.dt * pc_half, dipole

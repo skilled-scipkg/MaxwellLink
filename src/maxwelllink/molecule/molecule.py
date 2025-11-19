@@ -22,6 +22,7 @@ from maxwelllink.mxl_drivers.python.models import __drivers__
 
 from collections import deque
 
+
 @dataclass
 class Vector3:
     """
@@ -118,7 +119,7 @@ class Molecule:
         self.sources = []
         self.additional_data_history = []
         if not store_additional_data:
-            # use a deque to limit memory usage: if thousands of molecules are attached, 
+            # use a deque to limit memory usage: if thousands of molecules are attached,
             # perhaps we don't want to store too much history)
             self.additional_data_history = deque(maxlen=5)
 

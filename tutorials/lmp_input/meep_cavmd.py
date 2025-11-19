@@ -23,22 +23,27 @@ layerThicknesses = np.array([t2, t1] * nlayer + [0.5 * rescaling] + [t1, t2] * n
 layerThicknesses[0] += pmlThickness
 layerThicknesses[-1] += pmlThickness
 length = np.sum(layerThicknesses)
-layerCenters = np.cumsum(layerThicknesses) - layerThicknesses/2
-layerCenters = layerCenters - length/2
+layerCenters = np.cumsum(layerThicknesses) - layerThicknesses / 2
+layerCenters = layerCenters - length / 2
 cellSize = mp.Vector3(length, 0, 0)
 pmlLayers = [mp.PML(thickness=pmlThickness)]
 
-geometry = [mp.Block(mp.Vector3(layerThicknesses[i], mp.inf, mp.inf),
-    center=mp.Vector3(layerCenters[i], 0, 0), material=mp.Medium(index=layerIndexes[i]))
-    for i in range(layerThicknesses.size)]
+geometry = [
+    mp.Block(
+        mp.Vector3(layerThicknesses[i], mp.inf, mp.inf),
+        center=mp.Vector3(layerCenters[i], 0, 0),
+        material=mp.Medium(index=layerIndexes[i]),
+    )
+    for i in range(layerThicknesses.size)
+]
 
 molecule = mxl.Molecule(
     hub=hub,
-    center=mp.Vector3(0, 0, 0), 
-    size=mp.Vector3(0.25, 0, 0), 
-    sigma=0.05, 
-    dimensions=1, 
-    rescaling_factor=1e5
+    center=mp.Vector3(0, 0, 0),
+    size=mp.Vector3(0.25, 0, 0),
+    sigma=0.05,
+    dimensions=1,
+    rescaling_factor=1e5,
 )
 
 sources_non_molecule = []
@@ -51,11 +56,11 @@ sim = mxl.MeepSimulation(
     time_units_fs=time_units_fs,
     sources=sources,
     geometry=geometry,
-    boundary_layers=pmlLayers
+    boundary_layers=pmlLayers,
 )
 
 
-sim.run(until=2e3/resolution)   
+sim.run(until=2e3 / resolution)
 
 if mp.am_master():
     from maxwelllink.tools import ir_spectrum
@@ -78,11 +83,17 @@ if mp.am_master():
     plt.legend()
     plt.tight_layout()
     plt.show()
-    
-    freq, sp_x = ir_spectrum(mux, 0.5*time_units_fs/resolution, field_description="square")
-    freq, sp_y = ir_spectrum(muy, 0.5*time_units_fs/resolution, field_description="square")
-    freq, sp_z = ir_spectrum(muz, 0.5*time_units_fs/resolution, field_description="square")
-    
+
+    freq, sp_x = ir_spectrum(
+        mux, 0.5 * time_units_fs / resolution, field_description="square"
+    )
+    freq, sp_y = ir_spectrum(
+        muy, 0.5 * time_units_fs / resolution, field_description="square"
+    )
+    freq, sp_z = ir_spectrum(
+        muz, 0.5 * time_units_fs / resolution, field_description="square"
+    )
+
     plt.figure(figsize=(6, 4))
     plt.plot(freq, sp_x, label="X")
     plt.plot(freq, sp_y, label="Y")
@@ -93,5 +104,5 @@ if mp.am_master():
     plt.title("Infrared Spectrum")
     plt.legend()
     plt.tight_layout()
-    
+
     plt.show()

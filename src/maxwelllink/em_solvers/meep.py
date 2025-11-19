@@ -199,11 +199,13 @@ class MeepUnits(DummyEMUnits):
         courant = dt / dx
         if courant != 0.5:
             raise RuntimeError("MaxwellLink currently only supports Courant=0.5!")
-        
+
         omega_mu_to_ev = 0.242 / self.time_units_fs * 27.211 * 0.1 * 2.0 * np.pi
-        omega_mu_to_cminv = 0.242 / self.time_units_fs * 27.211 * 0.1 * EV_TO_CM_INV * 2.0 * np.pi
+        omega_mu_to_cminv = (
+            0.242 / self.time_units_fs * 27.211 * 0.1 * EV_TO_CM_INV * 2.0 * np.pi
+        )
         omega_mu_to_au = 0.242 / self.time_units_fs * 0.1 * 2.0 * np.pi
-        
+
         # audipoledt2mu = atomic_to_meep_units_SourceAmp(1.0, self.time_units_fs)
         print(
             "\n\n ######### MaxwellLink Units Helper #########\n",
@@ -226,7 +228,8 @@ class MeepUnits(DummyEMUnits):
                 omega_mu_to_au,
             ),
             "- Note that sources and dielectrics defined in MEEP use rotational frequency (f=omega/2pi), \n",
-            "- so probabably we need covert 1 eV photon energy to rotational frequency f = %.4E mu\n" % (1.0 / omega_mu_to_ev),
+            "- so probabably we need covert 1 eV photon energy to rotational frequency f = %.4E mu\n"
+            % (1.0 / omega_mu_to_ev),
             "- Electric field [E]: 1 mu = %.4E V/m = %.4E a.u.\n"
             % (mu2efield_si, mu2efield_au),
             "Hope this helps!\n",

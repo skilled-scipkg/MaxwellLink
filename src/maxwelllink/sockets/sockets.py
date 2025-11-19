@@ -511,20 +511,20 @@ def get_available_host_port(localhost=True, save_to_file=None) -> Tuple[str, int
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((bind_addr, 0))
         port = s.getsockname()[1]
-    
+
     ip = "127.0.0.1"
     if not localhost:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as tmp:
             tmp.connect(("8.8.8.8", 80))
             ip = tmp.getsockname()[0]
-    
+
     if am_master():
         # save host and port number to a file so mxl_driver can read it
         if save_to_file is not None:
             with open(save_to_file, "w") as f:
                 f.write(f"{ip}\n{port}\n")
-            
-    return ip, port 
+
+    return ip, port
 
 
 # helper function to determine whether this processor is the MPI master using mpi4py
