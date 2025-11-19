@@ -199,33 +199,36 @@ class MeepUnits(DummyEMUnits):
         courant = dt / dx
         if courant != 0.5:
             raise RuntimeError("MaxwellLink currently only supports Courant=0.5!")
+        
+        omega_mu_to_ev = 0.242 / self.time_units_fs * 27.211 * 0.1 * 2.0 * np.pi
+        omega_mu_to_cminv = 0.242 / self.time_units_fs * 27.211 * 0.1 * EV_TO_CM_INV * 2.0 * np.pi
+        omega_mu_to_au = 0.242 / self.time_units_fs * 0.1 * 2.0 * np.pi
+        
         # audipoledt2mu = atomic_to_meep_units_SourceAmp(1.0, self.time_units_fs)
         print(
             "\n\n ######### MaxwellLink Units Helper #########\n",
             "MEEP uses its own units system, which is based on the speed of light in vacuum (c=1), \n",
             "the permittivity of free space (epsilon_0=1), and the permeability of free space (mu_0=1). \n",
             "To couple MEEP with molecular dynamics, we set [c] = [epsilon_0] = [mu_0] = [hbar] = 1. \n",
-            "By further defining the time unit as %.2E fs, we can fix the units system of MEEP (mu).\n\n"
+            "By further defining the time unit as %.4E fs, we can fix the units system of MEEP (mu).\n\n"
             % self.time_units_fs,
-            "Given the simulation resolution = %d,\n - FDTD dt = %.2E mu (0.5/resolution) = %.2E fs\n"
+            "Given the simulation resolution = %d,\n - FDTD dt = %.4E mu (0.5/resolution) = %.4E fs\n"
             % (resolution, dt, dt * self.time_units_fs),
-            "- FDTD dx = %.2E mu (1.0/resolution) = %.2E nm\n"
+            "- FDTD dx = %.4E mu (1.0/resolution) = %.4E nm\n"
             % (dx, dx * self.time_units_fs * 299.792458),
-            "- Time [t]: 1 mu = %.2E fs = %.2E a.u.\n"
+            "- Time [t]: 1 mu = %.4E fs = %.4E a.u.\n"
             % (self.time_units_fs, self.time_units_fs * FS_TO_AU),
-            "- Length [x]: 1 mu = %.2E nm\n" % (299.792458 * self.time_units_fs),
-            # "- Frequency (defining MEEP source frequency) [f]: 1 mu = %.4E THz\n"
-            # % (41.341373335 / self.time_units_fs / 2.0 / np.pi),
-            "- Angular frequency [omega = 2 pi * f]: 1 mu = %.4E eV = %.4E cm-1 = %.4E a.u.\n"
+            "- Length [x]: 1 mu = %.4E nm\n" % (299.792458 * self.time_units_fs),
+            "- EM wavelength of 1 mu, angular frequency omega = 2pi mu = %.4E eV = %.4E cm-1 = %.4E a.u.\n"
             % (
-                0.242 / self.time_units_fs * 27.211 * 0.1 * 2.0 * np.pi,
-                0.242 / self.time_units_fs * 27.211 * 0.1 * EV_TO_CM_INV * 2.0 * np.pi,
-                0.242 / self.time_units_fs * 0.1 * 2.0 * np.pi,
+                omega_mu_to_ev,
+                omega_mu_to_cminv,
+                omega_mu_to_au,
             ),
-            "- Electric field [E]: 1 mu = %.2E V/m = %.2E a.u.\n"
+            "- Note that sources and dielectrics defined in MEEP use rotational frequency (f=omega/2pi), \n",
+            "- so probabably we need covert 1 eV photon energy to rotational frequency f = %.4E mu\n" % (1.0 / omega_mu_to_ev),
+            "- Electric field [E]: 1 mu = %.4E V/m = %.4E a.u.\n"
             % (mu2efield_si, mu2efield_au),
-            # "- Dipole moment [d]: 1 mu = %.2E C*m = %.2E a.u.\n"
-            # % (1.0 * self.dx * 299.792458, 1.0 * self.dx * 299.792458 * 1.0),
             "Hope this helps!\n",
             "############################################\n\n",
         )
