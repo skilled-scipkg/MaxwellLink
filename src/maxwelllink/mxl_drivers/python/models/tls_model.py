@@ -204,7 +204,7 @@ class TLSModel(DummyModel):
         amp_vec[self.orientation_idx] = amp
         if self.verbose:
             print(
-                f"[molecule ID {self.molecule_id}] Time: {self.t:.4f} a.u., Dipole: {self.dipole_vec[-1]}, Energy: {self.energy:.6f} a.u., returning Amp: {amp_vec[2]:.6E}"
+                f"[molecule ID {self.molecule_id}] Time: {self.t:.4f} a.u., Dipole: {self.dipole_vec[-1]}, Energy: {self.energy:.6f} a.u., returning Amp: {amp_vec}"
             )
         return amp_vec
 
