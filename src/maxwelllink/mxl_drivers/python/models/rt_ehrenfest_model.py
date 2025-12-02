@@ -328,7 +328,7 @@ class RTEhrenfestModel(RTTDDFTModel):
 
         geom = psi4.core.Matrix.from_array(R)
         self.mol.set_geometry(geom)
-        self.mol.reset_point_group('c1')
+        self.mol.reset_point_group("c1")
         self.mol.update_geometry()
 
     def _density_to_orth(self, Da, Db):

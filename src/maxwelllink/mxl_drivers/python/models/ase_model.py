@@ -24,7 +24,12 @@ from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from ase.io import read as ase_read
 
 # units parameters
-from maxwelllink.units import FS_TO_AU, FORCE_PER_EFIELD_AU_EV_PER_ANG, BOHR_PER_ANG, AMU_TO_AU
+from maxwelllink.units import (
+    FS_TO_AU,
+    FORCE_PER_EFIELD_AU_EV_PER_ANG,
+    BOHR_PER_ANG,
+    AMU_TO_AU,
+)
 
 
 def _parse_kwargs_string(s: str) -> Dict:
@@ -683,6 +688,7 @@ class ASEModel(DummyModel):
                 if self.forcewrap._cache_energy is not None
                 else 0.0
             ),
+            "energy_kin_au": float(self.kinEnuc),
             "mux_au": float(self.dipole_projected[0]),
             "muy_au": float(self.dipole_projected[1]),
             "muz_au": float(self.dipole_projected[2]),
