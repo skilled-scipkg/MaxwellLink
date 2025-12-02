@@ -9,3 +9,4 @@ BOHR_PER_ANG = 1.889726124565062
 # E(a.u.) = 5.142206747e11 V/m; F(eV/Angstrom) for q=1 is E(V/m) * 1e-10
 # So F(eV/Angstrom) = q * E(a.u.) * 51.422067476  (5.1422e11 * 1e-10)
 FORCE_PER_EFIELD_AU_EV_PER_ANG = 51.422067476
+AMU_TO_AU = 1822.888486209  # 1 amu in atomic units

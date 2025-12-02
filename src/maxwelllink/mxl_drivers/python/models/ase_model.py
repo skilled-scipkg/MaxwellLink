@@ -24,7 +24,7 @@ from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from ase.io import read as ase_read
 
 # units parameters
-from maxwelllink.units import FS_TO_AU, FORCE_PER_EFIELD_AU_EV_PER_ANG, BOHR_PER_ANG
+from maxwelllink.units import FS_TO_AU, FORCE_PER_EFIELD_AU_EV_PER_ANG, BOHR_PER_ANG, AMU_TO_AU
 
 
 def _parse_kwargs_string(s: str) -> Dict:
@@ -505,6 +505,8 @@ class ASEModel(DummyModel):
         self.dipole_projected = None
         self.dmudt_projected = None
 
+        self.kinEnuc = 0.0
+
     # -------------- heavy-load initialization (at INIT) --------------
 
     def initialize(self, dt_new, molecule_id):
@@ -599,10 +601,20 @@ class ASEModel(DummyModel):
             vel = np.zeros((len(self.atoms), 3), float)
         self._vel_angs_per_fs = np.asarray(vel, float)
 
+        # calculate kinetic energy under the atomic units
+        kinetic_energy_au = 0.0
+        masses_amu = self.atoms.get_masses()
+        for i in range(len(self.atoms)):
+            vi_au = self._vel_angs_per_fs[i] * (BOHR_PER_ANG / FS_TO_AU)
+            mi_au = masses_amu[i] * AMU_TO_AU
+            kinetic_energy_au += 0.5 * mi_au * np.dot(vi_au, vi_au)
+        self.kinEnuc = kinetic_energy_au
+
         if self.verbose:
             print(
                 f"[ASEModel {self.molecule_id}] t={self.t:.6e} au, Efield_au={self.forcewrap._E_au} a.u.,"
-                f"q={self._charges}, v_angs_per_fs={self._vel_angs_per_fs}, energy_au={self.forcewrap._cache_energy} a.u."
+                f"q={self._charges}, v_angs_per_fs={self._vel_angs_per_fs}, energy_au={self.forcewrap._cache_energy + self.kinEnuc} a.u."
+                f"energy_kin_au={self.kinEnuc} a.u."
             )
 
         # advance model time in a.u.
@@ -667,7 +679,7 @@ class ASEModel(DummyModel):
         d = {
             "time_au": float(self.t),
             "energy_au": float(
-                self.forcewrap._cache_energy
+                self.forcewrap._cache_energy + self.kinEnuc
                 if self.forcewrap._cache_energy is not None
                 else 0.0
             ),
