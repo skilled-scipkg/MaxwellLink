@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/source/overview.rst">
+  <a href="https://taoeli.github.io/MaxwellLink/">
     <img src="https://img.shields.io/badge/docs-latest-blue.svg" alt="Docs badge">
   </a>
   <a href="LICENSE">
@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/python-3.9%2B-brightgreen.svg" alt="Python versions">
 </p>
 
-**MaxwellLink** is a free and open-source framework for self-consistent light–matter simulations. It bridges electromagnetic solvers, such as [Meep](https://meep.readthedocs.io/en/latest/) or the built-in single-mode cavity, with heterogeneous molecular drivers spanning [QuTiP](https://qutip.org/), [Psi4](https://psicode.org/), [ASE](https://wiki.fysik.dtu.dk/ase/), and [LAMMPS](https://www.lammps.org/). This code can be used for both demonstration and production calculation purposes. Particularly, with a socket-based architecture, large-scale self-consistent light-matter simulations can be performed efficiently accross multiple nodes.
+**MaxwellLink** is a free and open-source framework for self-consistent light–matter simulations. It bridges electromagnetic solvers, such as [Meep](https://meep.readthedocs.io/en/latest/) or the built-in single-mode cavity, with heterogeneous molecular drivers spanning [QuTiP](https://qutip.org/), [Psi4](https://psicode.org/), [ASE](https://wiki.fysik.dtu.dk/ase/), and [LAMMPS](https://www.lammps.org/). This code can be used for both demonstration and production calculation purposes. Particularly, with a socket-based architecture, large-scale self-consistent light-matter simulations can be performed efficiently accross multiple HPC nodes.
 
 ## Key Features
 
@@ -39,23 +39,11 @@ Optional drivers (Meep, QuTiP, Psi4, ASE, LAMMPS) can be added by following the 
 
 ## Documentation
 
-Visit the [documentation](docs/source/overview.rst) for installation details, tutorials, API reference, and guidelines on extending **MaxwellLink**.
-
-Alternatively, the documentation can be built locally. Use the optional `docs` extra to install the Sphinx toolchain:
-
-```bash
-pip install ".[docs]"
-```
-
-Then generate the API and HTML pages using Sphinx and open them in your default browser:
-
-```bash
-make doc html
-```
+Visit the [documentation](https://taoeli.github.io/MaxwellLink/) for installation details, tutorials, API reference, and guidelines on extending **MaxwellLink**.
 
 ## Citation
 
 If **MaxwellLink** helps your research, please cite this project together with the coupled solvers you employ (e.g., Meep, Psi4, QuTiP, ASE, LAMMPS).
 
-- Li, T. E. MaxwellLink: A framework for self-consistent light-matter simulations. *To be submitted* 2025.
+- X. Ji, A. F. Bocanegra Vargas, G. Meng, and T. E. Li. MaxwellLink: A Unified Framework for Self-Consistent Light-Matter Simulations. *Submitted* 2025.
 

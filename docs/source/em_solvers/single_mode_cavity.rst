@@ -126,6 +126,8 @@ Parameters
      - Initial total molecular dipole vector prior to axis masking (a.u.). Default: ``[0.0, 0.0, 0.0]``.
    * - ``dmudt_initial``
      - Initial time derivative of the total molecular dipole vector (a.u.). Default: ``[0.0, 0.0, 0.0]``.
+   * - ``shift_dipole_baseline``
+     - When ``True`` subtract the initial dipole so the simulation starts from a zero baseline (helps with large permanent dipoles). Default: ``False``.
    * - ``molecule_half_step``
      - When ``True`` extrapolate molecular responses from half-step data (use ``False`` for full-step drivers). Default: ``False``.
    * - ``record_history``

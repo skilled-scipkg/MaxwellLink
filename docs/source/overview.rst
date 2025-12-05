@@ -51,5 +51,5 @@ Citation
 If you use **MaxwellLink** in your research, please cite:
 
 .. admonition:: Reference
-
-   Li, T. E. MaxwellLink: A framework for self-consistent light-matter simulations. To be submitted.
+   
+   X Ji, AF Bocanegra Vargas, G Meng, and TE Li. MaxwellLink: A Unified Framework for Self-Consistent Light-Matter Simulations. *Submitted* 2025.

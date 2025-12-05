@@ -137,6 +137,9 @@ Parameters
        initialization. Default: ``False``.
    * - ``fix_nuclei_indices``
      - Indices of nuclei to freeze during propagation. Default: ``None``.
+   * - ``save_xyz``
+     - Optional path to append XYZ snapshots of the trajectory during propagation.
+       Default: ``None`` (no trajectory file).
    * - ``checkpoint``
      - When ``True`` write ``rttddft_checkpoint_id_<n>.npy`` snapshots for later
        recovery. Default: ``False``.

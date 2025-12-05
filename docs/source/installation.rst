@@ -73,7 +73,7 @@ be pulled into the same conda environment.
    mxl_install_lammps
 
 The `LAMMPS <https://www.lammps.org/>`_ helper downloads, patches, and builds a `LAMMPS <https://www.lammps.org/>`_ executable that contains
-``fix mxl``; alternatively copy the provided ``fix_maxwelllink.*`` sources into
+``fix mxl``; alternatively copy the provided ``fix_maxwelllink.cpp`` and ``fix_maxwelllink.h`` files in source code (src/maxwelllink/mxl_drivers/lammps/) into
 your existing `LAMMPS <https://www.lammps.org/>`_ build and recompile.
 
 Verify the installation
@@ -92,3 +92,20 @@ that the coupling between EM solvers and the molecular drivers works in your env
 
 If the optional tests are skipped, confirm that the corresponding packages were
 installed or adjust your ``PYTHONPATH`` so that the drivers can import them.
+
+
+Build the Documentation
+-----------------------
+
+The documentation can be built locally. Use the optional `docs` extra to install the Sphinx toolchain:
+
+.. code-block:: bash
+
+   pip install ".[docs]"
+
+
+Then generate the API and HTML pages using Sphinx and open them in your default browser:
+
+.. code-block:: bash
+
+   make doc html

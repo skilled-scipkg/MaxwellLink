@@ -73,7 +73,8 @@ Parameters
        module. Default: ``tls``.
    * - ``preset_kwargs``
      - Comma-separated overrides for the TLS preset (same parameters as the TLS
-       driver, plus Lindblad rates ``gamma_relax`` and ``gamma_dephase``). Default:
+       driver, plus Lindblad rates ``gamma_relax`` and ``gamma_dephase``). TLS keys
+       can also be given as top-level ``--param`` tokens and are merged here. Default:
        ``""``.
    * - ``module``
      - (``preset=custom``) Path to a Python file that defines
@@ -83,8 +84,9 @@ Parameters
      - Parameters forwarded to ``build_model`` when using the custom preset. Default:
        ``""``.
    * - ``fd_dmudt``
-     - When ``False`` the driver evaluates :math:`\mathrm{d}\mu/\mathrm{d}t`
-       through finite differences instead of analytical evaluation. Default: ``False``.
+     - When ``True`` force a finite-difference evaluation of
+       :math:`\mathrm{d}\mu/\mathrm{d}t`; when ``False`` an analytical expression is
+       used when available. Default: ``False``.
    * - ``verbose``
      - When ``True`` the driver prints initialization details and time-step diagnostics.
        Default: ``False``.
