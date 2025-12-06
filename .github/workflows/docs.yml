@@ -54,7 +54,10 @@ jobs:
 
       - name: Build HTML
         run: |
-          sphinx-build -b html -d docs/build/doctrees docs/source docs/build/html
+          DOC_TREES="${GITHUB_WORKSPACE}/docs/build/doctrees"
+          DOC_HTML="${GITHUB_WORKSPACE}/docs/build/html"
+          mkdir -p "${DOC_TREES}"
+          sphinx-build -b html -d "${DOC_TREES}" docs/source "${DOC_HTML}"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
