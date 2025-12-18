@@ -46,6 +46,6 @@ The jupyter notebook tutorials are located at [tutorials/](./tutorials/). Users 
 
 ## Citation
 
-If **MaxwellLink** helps your research, please cite this project together with the coupled solvers you employ (e.g., Meep, Psi4, QuTiP, ASE, LAMMPS).
+If you find **MaxwellLink** helpful for your research, please cite the following reference:
 
 - X Ji †, AF Bocanegra Vargas †, G Meng, and TE Li. *MaxwellLink: A Unified Framework for Self-Consistent Light-Matter Simulations*. [arXiv:2512.06173](https://arxiv.org/abs/2512.06173) (2025). [[data]](https://github.com/TaoELi/maxwelllink_examples)
