@@ -621,7 +621,7 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                             component="x",
                         )
 
-                        amp_data = px_t + py_t + pz_t
+                        amp_data = px_t
                     elif tag == "Ey":
                         _, px_t, py_t, pz_t = calc_transverse_components_3d(
                             size=(self.size.x, self.size.y, self.size.z),
@@ -632,7 +632,7 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                             component="y",
                         )
 
-                        amp_data = px_t + py_t + pz_t
+                        amp_data = py_t
                     else:
                         _, px_t, py_t, pz_t = calc_transverse_components_3d(
                             size=(self.size.x, self.size.y, self.size.z),
@@ -643,7 +643,7 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                             component="z",
                         )
 
-                        amp_data = px_t + py_t + pz_t
+                        amp_data = pz_t
 
                     amp_data = np.copy(amp_data.astype(np.complex128), order="C")
 

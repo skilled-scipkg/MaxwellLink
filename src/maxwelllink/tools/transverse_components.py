@@ -127,6 +127,15 @@ def calc_transverse_components_3d(
     Pz_t = Pz_t[start_idx_x:end_idx_x, start_idx_y:end_idx_y, start_idx_z:end_idx_z]
 
     prefactor = dx**3 * (np.sum(Px_t) + np.sum(Py_t) + np.sum(Pz_t)) / mu12
+
+    # let's include only the diagonal component for normalization
+    if component == "z":
+        prefactor = dx**3 * np.sum(Pz_t) / mu12
+    elif component == "x":
+        prefactor = dx**3 * np.sum(Px_t) / mu12
+    elif component == "y":
+        prefactor = dx**3 * np.sum(Py_t) / mu12
+
     Px_t = np.copy(Px_t.astype(np.complex128), order="C") / prefactor
     Py_t = np.copy(Py_t.astype(np.complex128), order="C") / prefactor
     Pz_t = np.copy(Pz_t.astype(np.complex128), order="C") / prefactor
