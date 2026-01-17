@@ -319,7 +319,9 @@ def test_3d_1tls_relaxation_matches_analytical_via_socket_qutip(plotting=False):
 
 
 @pytest.mark.core
-def test_3d_2tls_relaxation_matches_analytical_via_socket_v2(polarization_style="analytical", plotting=False):
+def test_3d_2tls_relaxation_matches_analytical_via_socket_v2(
+    polarization_style="analytical", plotting=False
+):
     """
     End-to-end (socket) TLS relaxation test.
 
@@ -424,7 +426,9 @@ def test_3d_2tls_relaxation_matches_analytical_via_socket_v2(polarization_style=
                 import matplotlib.pyplot as plt
 
                 plt.plot(time_meep_units, population, "r-.", label="meep+socket")
-                plt.plot(time_meep_units, population_analytical, "k-", label="analytical")
+                plt.plot(
+                    time_meep_units, population_analytical, "k-", label="analytical"
+                )
                 plt.xlabel("time (meep units)")
                 plt.ylabel("excited population")
                 plt.legend()
@@ -450,4 +454,6 @@ def test_3d_2tls_relaxation_matches_analytical_via_socket_v2(polarization_style=
 
 if __name__ == "__main__":
     # test_3d_1tls_relaxation_matches_analytical_via_socket_qutip(plotting=True)
-    test_3d_2tls_relaxation_matches_analytical_via_socket_v2(plotting=True, polarization_style="transverse")
+    test_3d_2tls_relaxation_matches_analytical_via_socket_v2(
+        plotting=True, polarization_style="transverse"
+    )

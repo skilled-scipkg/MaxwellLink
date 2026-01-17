@@ -117,7 +117,9 @@ class Molecule:
         # if resolution is provided, we also compute dx and dt
         self.dx = 1.0 / resolution if resolution is not None else 0.0
         self.dt = 0.5 / resolution if resolution is not None else 0.0
-        self.polarization_type = polarization_type.lower() if polarization_type else "analytical"
+        self.polarization_type = (
+            polarization_type.lower() if polarization_type else "analytical"
+        )
         # reserve for sources and additional data history
         self.sources = []
         self.additional_data_history = []

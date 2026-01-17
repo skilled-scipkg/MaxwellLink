@@ -301,8 +301,11 @@ def test_1d_1tls_relaxation_matches_analytical_via_socket_v2(plotting=False):
                 except subprocess.TimeoutExpired:
                     proc.kill()
 
+
 @pytest.mark.core
-def test_1d_1tls_relaxation_numerical_polarization_matches_analytical_via_socket_v2(plotting=False):
+def test_1d_1tls_relaxation_numerical_polarization_matches_analytical_via_socket_v2(
+    plotting=False,
+):
     """
     End-to-end (socket) TLS relaxation test.
 
@@ -429,5 +432,8 @@ def test_1d_1tls_relaxation_numerical_polarization_matches_analytical_via_socket
                 except subprocess.TimeoutExpired:
                     proc.kill()
 
+
 if __name__ == "__main__":
-    test_1d_1tls_relaxation_numerical_polarization_matches_analytical_via_socket_v2(plotting=True)
+    test_1d_1tls_relaxation_numerical_polarization_matches_analytical_via_socket_v2(
+        plotting=True
+    )

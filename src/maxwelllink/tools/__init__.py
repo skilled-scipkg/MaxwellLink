@@ -14,5 +14,5 @@ __all__ = [
     "gaussian_pulse",
     "gaussian_enveloped_cosine",
     "cosine_drive",
-    "calc_transverse_components_3d"
+    "calc_transverse_components_3d",
 ]
