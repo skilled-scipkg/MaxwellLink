@@ -602,6 +602,7 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                 (mp.Ey, "Ey"),
                 (mp.Ez, "Ez"),
             ):
+                cutoff = 30
                 key = (self.polarization_fingerprint_hash, tag)
                 if key not in _fingerprint_source:
                     # create polarization amp data numerically
@@ -617,7 +618,7 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                             dx=dx,
                             sigma=self.sigma,
                             mu12=self.rescaling_factor,
-                            local_size=self.size.x * 30,
+                            local_size=self.size.x * cutoff,
                             component="x",
                         )
 
@@ -628,7 +629,7 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                             dx=dx,
                             sigma=self.sigma,
                             mu12=self.rescaling_factor,
-                            local_size=self.size.x * 30,
+                            local_size=self.size.x * cutoff,
                             component="y",
                         )
 
@@ -639,7 +640,7 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                             dx=dx,
                             sigma=self.sigma,
                             mu12=self.rescaling_factor,
-                            local_size=self.size.x * 30,
+                            local_size=self.size.x * cutoff,
                             component="z",
                         )
 
