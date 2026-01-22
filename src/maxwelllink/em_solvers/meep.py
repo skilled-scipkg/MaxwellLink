@@ -324,10 +324,16 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                 1.0 / (2.0 * np.pi) ** 0.5 / self.sigma_x * self.rescaling_factor
             )
             self._polarization_prefactor_2d = (
-                1.0 / (2.0 * np.pi) ** 1.0 / (self.sigma_x * self.sigma_y) * self.rescaling_factor
+                1.0
+                / (2.0 * np.pi) ** 1.0
+                / (self.sigma_x * self.sigma_y)
+                * self.rescaling_factor
             )
             self._polarization_prefactor_3d = (
-                1.0 / (2.0 * np.pi) ** 1.5 / (self.sigma_x * self.sigma_y * self.sigma_z) * self.rescaling_factor
+                1.0
+                / (2.0 * np.pi) ** 1.5
+                / (self.sigma_x * self.sigma_y * self.sigma_z)
+                * self.rescaling_factor
             )
 
     def _init_sources(self):
@@ -773,9 +779,10 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
         size = _to_mp_v3(self.size)
 
         def amp_func_3d(R):
-            return (
-                self._polarization_prefactor_3d
-                * np.exp(-R.x ** 2 / (2.0 * self.sigma_x**2) - R.y ** 2 / (2.0 * self.sigma_y**2) - R.z ** 2 / (2.0 * self.sigma_z**2))
+            return self._polarization_prefactor_3d * np.exp(
+                -R.x**2 / (2.0 * self.sigma_x**2)
+                - R.y**2 / (2.0 * self.sigma_y**2)
+                - R.z**2 / (2.0 * self.sigma_z**2)
             )
 
         def amp_func_2d(R):
@@ -954,7 +961,6 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
             )
         return [np.real(x), np.real(y), np.real(z)]
 
-
     def _calculate_ep_integral_point(self, sim: mp.Simulation):
         """
         Compute the regularized E-field integral over the molecule's kernel
@@ -982,9 +988,9 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
             ez = sim.get_field_point(mp.Ez, self.center)
             z = self.rescaling_factor * ez * dx**2
         else:  # 3D
-            #ex = sim.get_field_point(mp.Ex, self.center)
-            #ey = sim.get_field_point(mp.Ey, self.center)
-            #z = sim.get_field_point(mp.Ez, self.center)
+            # ex = sim.get_field_point(mp.Ex, self.center)
+            # ey = sim.get_field_point(mp.Ey, self.center)
+            # z = sim.get_field_point(mp.Ez, self.center)
             # directly using the raw value at the point yields very noisy results, so we multiply by the voxel volume here
             vol = mp.Volume(size=mp.Vector3(dx, dx, dx), center=_to_mp_v3(self.center))
             ex = sim.get_array(mp.Ex, vol).mean()
@@ -994,7 +1000,6 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
             y = self.rescaling_factor * ey * dx**3
             z = self.rescaling_factor * ez * dx**3
         return [np.real(x), np.real(y), np.real(z)]
-
 
     def _calculate_ep_integral_anisotropic_analytical(self, sim: mp.Simulation):
         """
@@ -1031,8 +1036,12 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                 lambda R, ez: self._polarization_prefactor_2d
                 * exp(
                     -(
-                        (R.x - self.center.x) * (R.x - self.center.x) / (2.0 * self.sigma_x**2)
-                        + (R.y - self.center.y) * (R.y - self.center.y) / (2.0 * self.sigma_y**2)
+                        (R.x - self.center.x)
+                        * (R.x - self.center.x)
+                        / (2.0 * self.sigma_x**2)
+                        + (R.y - self.center.y)
+                        * (R.y - self.center.y)
+                        / (2.0 * self.sigma_y**2)
                     )
                 )
                 * (ez),
@@ -1044,9 +1053,15 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                 lambda R, ez: self._polarization_prefactor_3d
                 * exp(
                     -(
-                        (R.x - self.center.x) * (R.x - self.center.x) / (2.0 * self.sigma_x**2)
-                        + (R.y - self.center.y) * (R.y - self.center.y) / (2.0 * self.sigma_y**2)
-                        + (R.z - self.center.z) * (R.z - self.center.z) / (2.0 * self.sigma_z**2)
+                        (R.x - self.center.x)
+                        * (R.x - self.center.x)
+                        / (2.0 * self.sigma_x**2)
+                        + (R.y - self.center.y)
+                        * (R.y - self.center.y)
+                        / (2.0 * self.sigma_y**2)
+                        + (R.z - self.center.z)
+                        * (R.z - self.center.z)
+                        / (2.0 * self.sigma_z**2)
                     )
                 )
                 * (ez),
@@ -1057,9 +1072,15 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                 lambda R, ex: self._polarization_prefactor_3d
                 * exp(
                     -(
-                        (R.x - self.center.x) * (R.x - self.center.x) / (2.0 * self.sigma_x**2)
-                        + (R.y - self.center.y) * (R.y - self.center.y) / (2.0 * self.sigma_y**2)
-                        + (R.z - self.center.z) * (R.z - self.center.z) / (2.0 * self.sigma_z**2)
+                        (R.x - self.center.x)
+                        * (R.x - self.center.x)
+                        / (2.0 * self.sigma_x**2)
+                        + (R.y - self.center.y)
+                        * (R.y - self.center.y)
+                        / (2.0 * self.sigma_y**2)
+                        + (R.z - self.center.z)
+                        * (R.z - self.center.z)
+                        / (2.0 * self.sigma_z**2)
                     )
                 )
                 * (ex),
@@ -1070,16 +1091,23 @@ class MoleculeMeepWrapper(MoleculeDummyWrapper):
                 lambda R, ey: self._polarization_prefactor_3d
                 * exp(
                     -(
-                        (R.x - self.center.x) * (R.x - self.center.x) / (2.0 * self.sigma_x**2)
-                        + (R.y - self.center.y) * (R.y - self.center.y) / (2.0 * self.sigma_y**2)
-                        + (R.z - self.center.z) * (R.z - self.center.z) / (2.0 * self.sigma_z**2)
+                        (R.x - self.center.x)
+                        * (R.x - self.center.x)
+                        / (2.0 * self.sigma_x**2)
+                        + (R.y - self.center.y)
+                        * (R.y - self.center.y)
+                        / (2.0 * self.sigma_y**2)
+                        + (R.z - self.center.z)
+                        * (R.z - self.center.z)
+                        / (2.0 * self.sigma_z**2)
                     )
                 )
                 * (ey),
                 vol,
             )
         return [np.real(x), np.real(y), np.real(z)]
-    
+
+
 # ---------- NON-SOCKET Step Function for MEEP ----------
 def update_molecules_no_socket(
     molecules: List[MoleculeMeepWrapper], sources_non_molecule: List = None

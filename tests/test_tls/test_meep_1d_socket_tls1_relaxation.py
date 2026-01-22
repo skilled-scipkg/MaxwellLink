@@ -563,7 +563,6 @@ def test_1d_1tls_relaxation_point_dipole_matches_analytical_via_socket_v2(
                 except subprocess.TimeoutExpired:
                     proc.kill()
 
+
 if __name__ == "__main__":
-    test_1d_1tls_relaxation_point_dipole_matches_analytical_via_socket_v2(
-        plotting=True
-    )
+    test_1d_1tls_relaxation_point_dipole_matches_analytical_via_socket_v2(plotting=True)
