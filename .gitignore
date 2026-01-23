@@ -234,6 +234,4 @@ src/maxwelllink/sockets/_sockets_cpp.cpp
 *.bak
 maxwelllink_benchmark/
 
-projects/
-skills/
-AGENTS.md
+projects/*/

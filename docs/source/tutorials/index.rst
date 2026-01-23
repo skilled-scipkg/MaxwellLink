@@ -30,7 +30,7 @@ MEEP FDTD
 
 
 Advanced Features
----------
+------------------
 
 .. toctree::
    :maxdepth: 1

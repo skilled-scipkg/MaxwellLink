@@ -27,6 +27,7 @@ extensions = [
     "myst_parser",
     "sphinx.ext.mathjax",
     "nbsphinx",
+    "sphinxcontrib.youtube",
 ]
 
 mathjax3_config = {
@@ -96,3 +97,9 @@ html_static_path = ["_static"]
 html_css_files = [
     "css/custom.css",
 ]
+
+# Ensure referrer header is sent for embedded content (e.g., YouTube) to avoid
+# player configuration errors such as "Error 153".
+html_meta = {
+    "referrer": "strict-origin-when-cross-origin",
+}

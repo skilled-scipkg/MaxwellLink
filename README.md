@@ -19,12 +19,15 @@
 
 This code can be used for both demonstrative and production calculation purposes. Particularly, with a socket-based architecture, large-scale self-consistent light-matter simulations can be performed efficiently accross multiple HPC nodes.
 
+The latest version of **MaxwellLink** (v0.3) ships with [**AI Agent Skills**](https://taoeli.github.io/MaxwellLink/agent_skills.html). With simple natural language inputs, users can easily create the input files and run jobs in both local machines and HPC systems.
+
 ## Key Features
 
 - **Embracing state-of-the-art ecosystems** in both computational electrodynamics and quantum chemistry, extending the boundary of light-matter simulations.
 - **Unified Python interfaces** for socket-connected and embedded molecular drivers in light-matter simulations.
 - **Heterogeneous molecular theories** including TLS, [QuTiP](https://qutip.org/) model Hamiltonians, in-house RT-TDDFT/Ehrenfest dynamics using [Psi4](https://psicode.org/) integrals, [ASE](https://wiki.fysik.dtu.dk/ase/) classical dynamics, and modified [LAMMPS](https://www.lammps.org/) via `fix mxl`, all in one EM simulation.
 - **Extensible code structure** to add custom EM solvers or molecular drivers with minimal efforts.
+- **Embedded AI Agent Skills** to allow users chat within, e.g., [Visual Code IDE + Codex](https://taoeli.github.io/MaxwellLink/agent_skills.html), to directly generate desired input files and even run jobs in both local machines and HPC systems.
 
 ## Quick Start
 

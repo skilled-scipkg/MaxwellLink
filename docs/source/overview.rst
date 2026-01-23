@@ -16,6 +16,9 @@ Use this documentation to install the **MaxwellLink** package, run your first se
 explore the available EM solvers and molecular drivers. For developers, the :doc:`architecture` and :doc:`contributing` sections provide an 
 overview of the code structure, design principles, and how to extend the framework with custom solvers.
 
+**MaxwellLink** now also supports :doc:`agent_skills`. With simple natural language inputs, users can easily create the input files and run jobs in both local machines and HPC systems.
+
+
 .. toctree::
    :maxdepth: 1
    :caption: Get Started
@@ -37,6 +40,7 @@ overview of the code structure, design principles, and how to extend the framewo
    architecture
    em_solvers/index
    drivers/index
+   agent_skills
    contributing
 
 .. toctree::

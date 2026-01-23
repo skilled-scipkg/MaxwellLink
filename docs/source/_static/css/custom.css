@@ -192,6 +192,37 @@ body[data-theme="auto"][data-default-mode="dark"] {
   margin: 0;
 }
 
+/* Responsive embedded video container */
+.video-container {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 */
+  height: 0;
+  overflow: hidden;
+  margin: 1rem 0;
+  border-radius: 14px;
+  box-shadow: 0 16px 32px -22px rgba(0, 0, 0, 0.45);
+}
+
+.video-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.video-fallback {
+  text-align: center;
+  margin-top: 0.4rem;
+  font-size: 0.95rem;
+}
+
+.video-fallback a {
+  font-weight: 600;
+  text-decoration: none;
+}
+
 .mxl-hero__stats dt {
   font-size: 0.75rem;
   letter-spacing: 0.08em;
