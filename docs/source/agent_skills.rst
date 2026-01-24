@@ -39,3 +39,30 @@ The above video tutorial uses the following input prompt:
    In my local machine, run an initially weakly excited two-level system coupled to 2d vacuum using meep fdtd and plot the excited-state population dynamics
 
 
+Automatic light-matter simulations on Anvil HPC
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Using `Purdue Anvil HPC system <https://www.rcac.purdue.edu/knowledge/anvil>`_ (available via the `NSF ACCESS program <https://www.access-ci.org/>`_) as an example, you can also use MaxwellLink's agent skills to run light-matter simulations on remote HPC clusters via VS Code and the Codex extension.
+
+Please watch the following `walkthrough video <https://www.youtube.com/watch?v=c0PVxcvriDM>`_ for an introduction to using MaxwellLink's agent skills on HPC systems:
+
+.. youtube:: c0PVxcvriDM
+
+Different from the local machine setup, you need to **configure VS Code to connect to the remote HPC** system via SSH. Please refer to the official VS Code documentation for detailed instructions on setting up SSH connections:
+
+`https://code.visualstudio.com/docs/remote/ssh <https://code.visualstudio.com/docs/remote/ssh>`_
+
+After setting up the SSH connection, follow these steps:
+
+1. Open VS Code -> ``File`` -> ``Open Folder...`` -> select ``path/to/MaxwellLink`` on the remote HPC system.
+2. Install/enable the **Codex** extension (from Marketplace). Make sure the extension has access to the workspace.
+3. Open the Codex chat panel (usually the side activity bar), switch mode to **Agent (full access)** (bottom panel setting). This will allow to run commands without approval for each command.
+4. Provide your prompt. The agent will load the relevant skills at ``skills/`` and try to accomplish your request.
+5. When prompted, let the agent run the suggested terminal commands in VS Code's integrated terminal; it will create ``projects/YYYY-MM-DD-<name>/`` and create input files for **MaxwellLink**.
+
+The above video tutorial uses the following input prompt:
+
+.. code-block:: text
+
+   In this Anvil HPC system, run a slurm job of an initially weakly excited two-level system coupled to 2d vacuum using meep fdtd and then plot the excited-state population dynamics after the slurm job
+
