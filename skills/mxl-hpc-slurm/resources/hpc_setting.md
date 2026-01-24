@@ -28,10 +28,9 @@
 #SBATCH -p shared
 
 set -euo pipefail
-module purge
-module load anaconda/2023.03 || true   # optional; keep if available
 
-srun -n "${SLURM_NTASKS:-1}" python -u em_main.py
+# always use mpirun instead of srun for dealing with meep related jobs
+mpirun -np "${SLURM_NTASKS:-1}" python -u em_main.py
 ```
 
 ### Two-step pattern (recommended with `mxl-hpc-slurm` skill)

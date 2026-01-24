@@ -4,4 +4,4 @@
 #SBATCH -e mxl_main.%j.err
 
 set -euo pipefail
-srun -n "${SLURM_NTASKS:-1}" python -u em_main.py
+mpirun -np "${SLURM_NTASKS:-1}" python -u em_main.py

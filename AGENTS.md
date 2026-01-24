@@ -10,9 +10,21 @@ MaxwellLink is a modular, open-source Python framework for self-consistent light
 
 - If you feel confused, also read `docs/source/` for the documentation of MaxwellLink as well as the source code at `src/maxwelllink/`.
 
-## Performing simulations
+## Performing simulations on local machines
 
-- Once being asked to directly perform MaxwellLink simulations, first generate the proper input files with your maximal efforts following ## Preparing input files . Then, perform an independent code review of the generated input files using knowledge from `skills/`. Finally, if `sbatch` command is available, add a SLRUM bash script to submit this simulation within the local subfolder of the input files; otherwise directly perform simulations locally.
+- Once being asked to directly perform MaxwellLink simulations, first generate the proper input files with your maximal efforts following ## Preparing input files. Then, perform an independent code review of the generated input files using knowledge from `skills/`. Finally, if `sbatch` command is available, add a SLRUM bash script to submit this simulation within the local subfolder of the input files; otherwise directly perform simulations locally.
+
+## Performing simulations on HPC systems
+
+If `sbatch` command is available, add a SLRUM bash script to submit this simulation within the local subfolder of the input files, according to the HPC setting given at `skills/mxl-hpc-slurm/resources/hpc_setting.md`. Then, submit the SLURM jobs.
+
+## Postprocessing 
+
+If you are asked to post-process the simulation data, wait the simulation if finished either on local machines or HPC SLURM, and then create Python plotting scripts accordingly to provide the visuallization file directly.
+
+## Debugging on failed or unsuccessful simulations
+
+If the simulation cannot be finished due to any bug or is finished but generating undesired (apparently wrong) results, write a summary file ``debugging.md`` to briefly conclude what you have done in this simulation as well as the possible causes of the bug. Then, create a new, different subfolder `YEAR-MM-DD-NAME/` within `projects/`, learning what you have done incorrectly, and redo the entire simulation procedure, from ## Preparing input files, ## Performing simulations, to ## Postprocessing.
 
 ## Other requests from the users
 
