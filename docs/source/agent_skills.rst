@@ -18,7 +18,7 @@ Then, follow :doc:`installation` to install the third-party EM solver (MEEP FDTD
 
 After installation, you can use MaxwellLink's agent skills to scaffold and run light-matter simulations automatically.
 
-Automatic light-matter simulations on local machines
+Automated light-matter simulations on local machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Please watch the following `walkthrough video <https://www.youtube.com/watch?v=ttAvvNByMLg>`_ for an introduction to using MaxwellLink's agent skills with VS Code and the Codex extension:
@@ -39,7 +39,7 @@ The above video tutorial uses the following input prompt:
    In my local machine, run an initially weakly excited two-level system coupled to 2d vacuum using meep fdtd and plot the excited-state population dynamics
 
 
-Automatic light-matter simulations on Anvil HPC
+Automated light-matter simulations on Anvil HPC
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Using `Purdue Anvil HPC system <https://www.rcac.purdue.edu/knowledge/anvil>`_ (available via the `NSF ACCESS program <https://www.access-ci.org/>`_) as an example, you can also use MaxwellLink's agent skills to run light-matter simulations on remote HPC clusters via VS Code and the Codex extension.
