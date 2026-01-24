@@ -66,3 +66,8 @@ The above video tutorial uses the following input prompt:
 
    In this Anvil HPC system, run a slurm job of an initially weakly excited two-level system coupled to 2d vacuum using meep fdtd and then plot the excited-state population dynamics after the slurm job
 
+
+Customizing HPC settings
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Users can modify the HPC settings in the ``skills/mxl-hpc-slurm/resources/hpc_setting.md`` file to match their HPC system requirements. The default configuration is set up for the Anvil HPC system. Users can change parameters accordingly for different HPC systems.
