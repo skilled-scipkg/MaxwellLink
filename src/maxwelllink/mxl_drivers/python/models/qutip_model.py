@@ -396,6 +396,7 @@ class QuTiPModel(DummyModel):
             )
 
         self.H0 = cfg["H0"]
+        self.Identity = qt.qeye(self.H0.shape[0])
         self.mu_ops = {"x": None, "y": None, "z": None, **cfg.get("mu_ops", {})}
         self.c_ops = list(cfg.get("c_ops", []))
 
@@ -506,6 +507,7 @@ class QuTiPModel(DummyModel):
             Electric field vector ``[E_x, E_y, E_z]`` at the current time step.
         """
 
+        '''
         H = self.H0
         if self.mu_ops["x"] is not None:
             H -= float(E_vec[0]) * self.mu_ops["x"]
@@ -516,6 +518,13 @@ class QuTiPModel(DummyModel):
 
         # Single "macro" step: piecewise-constant E over [0, dt]
         res = qt.mesolve(H, self.rho, tlist=[0.0, self.dt], c_ops=self.c_ops, e_ops=[])
+        self.rho = res.states[-1]
+        '''
+
+        # use unitary propagator to propagate Hamiltonian 
+        self._effective_unitary_step(E_vec)  # to keep rho_final consistent
+        # use Lindblad to propagate collapse operators with Hamiltonian set as Identity
+        res = qt.mesolve(self.Identity, self.rho, tlist=[0.0, self.dt], c_ops=self.c_ops, e_ops=[])
         self.rho = res.states[-1]
 
     # -------------- one FDTD step under E-field --------------
