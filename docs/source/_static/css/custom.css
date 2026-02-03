@@ -937,7 +937,7 @@ body.mxl-landing .mxl-loop-card > * {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.2rem 0;
+  padding: 0.5rem 0;
 }
 
 .mxl-loop__connector::before {
