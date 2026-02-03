@@ -12,6 +12,9 @@ Advanced features in **MaxwellLink** which  differ from other light-matter simul
 - [Collective, heterogeneous coupling of QuTiP + RT-TDDFT HCN molecules](./singlemode_many_drivers.ipynb)
 - [Vibrational strong coupling with liquid water: Unix socket](./singlemode_vsc.ipynb)
 
+## Laser driven dynamics
+- [Cosine driving of TLS](./driven_tls.ipynb)
+
 ## MEEP FDTD
 
 - [Spontaneous emission of TLS: TCP socket](./meep_tls_spontaneous_emission.ipynb)

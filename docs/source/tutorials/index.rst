@@ -19,6 +19,15 @@ Single-Mode Cavity
    notebook/singlemode_many_drivers.ipynb
    notebook/singlemode_vsc.ipynb
 
+
+Laser-Driven Dynamics
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. toctree::
+   :maxdepth: 1
+
+   notebook/driven_tls.ipynb
+
 MEEP FDTD
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
