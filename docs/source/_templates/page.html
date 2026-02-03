@@ -5,36 +5,285 @@
     <script>
       document.body.classList.add("mxl-landing");
     </script>
-    <section class="mxl-hero">
-      <span class="mxl-hero__badge">AI-Powered Light-Matter Engine</span>
-      <div class="mxl-hero__content">
-        <h1 class="mxl-hero__title">MaxwellLink: Self-consistent light-matter simulations</h1>
-        <p class="mxl-hero__lead">
-          A flexible framework for connecting EM solvers with a wide range of molecular drivers, embracing the state-of-art ecosystems in both computational electromagnetics and quantum chemistry to efficiently simulate light-matter dynamics across multiple scales.
-        </p>
-        <div class="mxl-hero__actions">
-          <a class="mxl-button mxl-button--primary" href="{{ pathto('installation') }}">
-            Install MaxwellLink
-          </a>
-          <a class="mxl-button mxl-button--secondary" href="{{ pathto('overview') }}">
-            View Documentation
-          </a>
-          <a class="mxl-button mxl-button--ghost" href="{{ pathto('tutorials/index') }}">
-            Launch Tutorials
+    <a class="mxl-skip-link" href="#mxl-main">Skip to content</a>
+
+    <header class="mxl-topbar">
+      <div class="mxl-topbar__inner">
+        <a class="mxl-brand" href="{{ pathto('index') }}" aria-label="MaxwellLink home">
+          <span class="mxl-brand__mark" aria-hidden="true">
+            <img src="{{ pathto('_static/img/mark.svg', 1) }}" alt="" loading="eager" decoding="async" />
+          </span>
+          <span class="mxl-brand__name">MaxwellLink</span>
+        </a>
+
+        <nav class="mxl-topbar__nav" aria-label="Landing page">
+          <a class="mxl-topbar__link" href="#features">Highlights</a>
+          <a class="mxl-topbar__link" href="#sockets">Sockets</a>
+          <a class="mxl-topbar__link" href="#agent">Agent Skills</a>
+        </nav>
+
+        <div class="mxl-topbar__actions">
+          <a class="mxl-topbar__cta" href="{{ pathto('overview') }}">Docs</a>
+          <a class="mxl-button mxl-button--primary mxl-button--sm" href="{{ pathto('installation') }}">
+            Get started
           </a>
         </div>
-        <dl class="mxl-hero__stats">
-          <div>
-            <dt>Electromagnetics</dt>
-            <dd>Meep FDTD · Single-mode cavity ·  Prescribed field</dd>
-          </div>
-          <div>
-            <dt>Driver Ecosystem</dt>
-            <dd>Psi4 RT-Ehrenfest · ASE / LAMMPS MD · QuTiP models </dd>
-          </div>
-        </dl>
       </div>
-    </section>
+    </header>
+
+    <main id="mxl-main">
+      <section class="mxl-hero" id="top">
+        <div class="mxl-hero__grid">
+          <div class="mxl-hero__copy">
+            <div class="mxl-hero__kicker">
+              <span class="mxl-hero__dot" aria-hidden="true"></span>
+              <span>AI-powered light–matter engine</span>
+            </div>
+            <h1 class="mxl-hero__title">
+              MaxwellLink connects
+              <span class="mxl-gradient-text">electromagnetic solvers</span>
+              and
+              <span class="mxl-gradient-text">molecular drivers</span>
+              into one loop.
+            </h1>
+            <p class="mxl-hero__lead">
+              Run light and matter solvers in the same process or across HPC computing nodes via <strong>TCP/Unix sockets</strong>.
+            </p>
+            <div class="mxl-hero__actions">
+              <a class="mxl-button mxl-button--primary" href="{{ pathto('installation') }}">Install</a>
+              <a class="mxl-button mxl-button--secondary" href="{{ pathto('overview') }}">Documentation</a>
+              <a class="mxl-button mxl-button--ghost" href="{{ pathto('agent_skills') }}">Agent Skills</a>
+            </div>
+          </div>
+
+          <div class="mxl-hero__visual" aria-hidden="true">
+            <div class="mxl-glass-card">
+              <div class="mxl-glass-card__top">
+                <span class="mxl-chip mxl-chip--ok">MaxwellLink scheme</span>
+              </div>
+
+              <div class="mxl-loop mxl-loop--hero">
+                <div class="mxl-loop__block">
+                  <div class="mxl-loop__name">EM solver</div>
+                  <div class="mxl-loop__meta">FDTD, single-mode cavity, prescribed field</div>
+                </div>
+                <div class="mxl-loop__connector">
+                  <span>regularized EM vector</span>
+                </div>
+                <div class="mxl-loop__block mxl-loop__block--core">
+                  <div class="mxl-loop__name">SocketHub</div>
+                  <div class="mxl-loop__meta">Field data ↔ molecular current density</div>
+                </div>
+                <div class="mxl-loop__connector">
+                  <span>Socket communications</span>
+                </div>
+                <div class="mxl-loop__block">
+                  <div class="mxl-loop__name">Molecular drivers</div>
+                  <div class="mxl-loop__meta">TLS, QuTiP, real-time electron via Psi4, ASE, LAMMPS</div>
+                </div>
+              </div>
+
+              <div class="mxl-mini">
+                <div class="mxl-mini__row">
+                  <span class="mxl-mini__label">Sockets</span>
+                  <span class="mxl-mini__value">TCP · Unix domain</span>
+                </div>
+                <div class="mxl-mini__row">
+                  <span class="mxl-mini__label">Scaling</span>
+                  <span class="mxl-mini__value">Local → multi-node HPC</span>
+                </div>
+                <div class="mxl-mini__row">
+                  <span class="mxl-mini__label">Automation</span>
+                  <span class="mxl-mini__value">Agent Skills workflows</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mxl-glow mxl-glow--a"></div>
+            <div class="mxl-glow mxl-glow--b"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mxl-section" id="features">
+        <div class="mxl-container">
+          <div class="mxl-section__head">
+            <h2>Scientific workflow, modern architecture</h2>
+            <p>
+              MaxwellLink is built for large-scale and heterogeneous light–matter simulations.
+              Its modular design enables flexible combinations of electromagnetic solvers and molecular drivers,
+              all through a unified Python interface.
+            </p>
+          </div>
+
+          <div class="mxl-cards">
+            <article class="mxl-card">
+              <h3>Self-consistent propagation</h3>
+              <p>Run EM propagation and matter evolution in a self-consistent loop, with a unified Python interface.</p>
+              <div class="mxl-card__tags">
+                <span class="mxl-pill">Light & Matter</span>
+                <span class="mxl-pill">Multiscale simulations</span>
+              </div>
+            </article>
+
+            <article class="mxl-card">
+              <h3>Socket interface</h3>
+              <p>
+                Decouple light and matter and run different components on separate processes or nodes via TCP/Unix sockets.
+              </p>
+              <div class="mxl-card__tags">
+                <span class="mxl-pill">TCP/Unix socket</span>
+                <span class="mxl-pill">HPC-oriented</span>
+              </div>
+            </article>
+
+            <article class="mxl-card">
+              <h3>Heterogeneous drivers</h3>
+              <p>
+                Mix quantum models, first-principles electron dynamics, and nuclear dynamics drivers in one EM simulation.
+              </p>
+              <div class="mxl-card__tags">
+                <span class="mxl-pill">TLS / QuTiP</span>
+                <span class="mxl-pill">Psi4</span>
+                <span class="mxl-pill">ASE / LAMMPS</span>
+              </div>
+            </article>
+
+            <article class="mxl-card">
+              <h3>Agent Skills automation</h3>
+              <p>
+                Starting by using natural language prompts to run simulations in both local machines and HPC.
+              </p>
+              <div class="mxl-card__tags">
+                <span class="mxl-pill">User-friendly</span>
+                <span class="mxl-pill">AI workflow</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="mxl-section mxl-section--alt" id="sockets">
+        <div class="mxl-container">
+          <div class="mxl-split">
+            <div class="mxl-split__copy">
+              <h2>Sockets interface, by design</h2>
+              <p>
+                MaxwellLink can run each EM solver and molecular driver as independent programs communicating through a socket interface.
+                This enables scalable large-scale simulations on HPC systems.
+              </p>
+              <ul class="mxl-list">
+                <li><strong>TCP sockets</strong> for multi-node HPC.</li>
+                <li><strong>Unix domain sockets</strong> for fast local machines.</li>
+                <li>Connect light and matter engines written in different languages while keeping a unified simulation loop.</li>
+              </ul>
+              <div class="mxl-split__actions">
+                <a class="mxl-button mxl-button--secondary mxl-button--sm" href="{{ pathto('architecture') }}">Architecture</a>
+                <a class="mxl-button mxl-button--ghost mxl-button--sm" href="{{ pathto('usage') }}">Usage</a>
+              </div>
+            </div>
+
+            <div class="mxl-split__panel">
+              <div class="mxl-code-card mxl-loop-card" role="group" aria-label="Conceptual socket loop">
+                <div class="mxl-code-card__title mxl-loop-card__title">Conceptual loop of MaxwellLink</div>
+                <div class="mxl-loop">
+                  <div class="mxl-loop__block">
+                    <div class="mxl-loop__name">EM solver</div>
+                    <div class="mxl-loop__meta">FDTD, single-mode cavity, prescribed field</div>
+                  </div>
+                  <div class="mxl-loop__connector">
+                    <span>regularized EM vector</span>
+                  </div>
+                  <div class="mxl-loop__block mxl-loop__block--core">
+                    <div class="mxl-loop__name">SocketHub</div>
+                    <div class="mxl-loop__meta">Field data ↔ molecular current density</div>
+                  </div>
+                  <div class="mxl-loop__connector">
+                    <span>Socket communications</span>
+                  </div>
+                  <div class="mxl-loop__block">
+                    <div class="mxl-loop__name">Molecular drivers</div>
+                    <div class="mxl-loop__meta">TLS, QuTiP, real-time electron via Psi4, ASE, LAMMPS</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mxl-section" id="agent">
+        <div class="mxl-container">
+          <div class="mxl-section__head">
+            <h2>Agent Skills for automated simulations</h2>
+            <p>
+              MaxwellLink ships with Agent Skills that can generate input files and launch simulations from a short natural-language prompt.
+              The workflow is transparent: you can review and edit the generated inputs before running.
+            </p>
+          </div>
+
+          <div class="mxl-split">
+            <div class="mxl-split__copy">
+              <h3>Example prompt</h3>
+              <div class="mxl-code-card" role="group" aria-label="Example agent prompt">
+                <pre class="mxl-code-card__code"><code>In my local machine, run an initially weakly excited two-level system coupled to 2d vacuum using meep fdtd and plot the excited-state population dynamics</code></pre>
+              </div>
+              <p class="mxl-small">
+                Learn more in the <a href="{{ pathto('agent_skills') }}">Agent Skills documentation</a>.
+              </p>
+              <div class="mxl-split__actions">
+                <a class="mxl-button mxl-button--primary mxl-button--sm" href="{{ pathto('agent_skills') }}">Open Agent Skills</a>
+                <a class="mxl-button mxl-button--secondary mxl-button--sm" href="{{ pathto('tutorials/index') }}">Browse tutorials</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mxl-section mxl-section--alt" id="get-started">
+        <div class="mxl-container">
+          <div class="mxl-section__head">
+            <h2>Get started in minutes</h2>
+            <p>Install MaxwellLink, choose a solver + driver combination, then run a tutorial end-to-end.</p>
+          </div>
+
+          <div class="mxl-cta-card">
+            <div class="mxl-cta-card__copy">
+              <ol class="mxl-ol">
+                <li><strong>Install</strong> the Python package: <code class="mxl-command">pip install maxwelllink</code></li>
+                <li><strong>Select</strong> an EM solver and molecular drivers.</li>
+                <li><strong>Run</strong> a tutorial and iterate from there.</li>
+              </ol>
+              <p class="mxl-small">
+                For research use, always validate numerical settings (grid, time step, model parameters) for your simulations.
+              </p>
+            </div>
+            <div class="mxl-cta-card__actions">
+              <a class="mxl-button mxl-button--primary" href="{{ pathto('installation') }}">Installation</a>
+              <a class="mxl-button mxl-button--secondary" href="{{ pathto('tutorials/index') }}">Tutorials</a>
+              <a class="mxl-button mxl-button--ghost" href="{{ pathto('api/modules') }}">API reference</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="mxl-landing-footer" aria-label="Landing page footer">
+        <div class="mxl-container mxl-landing-footer__inner">
+          <div>
+            <div class="mxl-landing-footer__title">Cite MaxwellLink</div>
+            <div class="mxl-landing-footer__text">
+              X Ji †, AF Bocanegra Vargas †, G Meng, and TE Li. <em>MaxwellLink: A Unified Framework for Self-Consistent Light-Matter Simulations</em>.
+              <a href="https://arxiv.org/abs/2512.06173">arXiv:2512.06173</a> (2025).
+            </div>
+          </div>
+          <div class="mxl-landing-footer__links" aria-label="Project links">
+            <a href="https://github.com/TaoELi/MaxwellLink">GitHub</a>
+            <a href="https://pypi.org/project/maxwelllink/">PyPI</a>
+            <a href="{{ pathto('contributing') }}">Contributing</a>
+          </div>
+        </div>
+      </footer>
+    </main>
   {% else %}
     <script>
       document.body.classList.remove("mxl-landing");
