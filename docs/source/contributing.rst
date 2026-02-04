@@ -10,17 +10,49 @@ coupling logic so new components only need to implement domain-specific details.
 Source Layout
 -------------
 
-- ``src/maxwelllink/mxl_drivers/python/models``: Python molecular drivers (TLS,
-  QuTiP, RTTDDFT, ASE, ...) that inherit from
-  :class:`maxwelllink.mxl_drivers.python.models.dummy_model.DummyModel`.
-- ``src/maxwelllink/mxl_drivers/lammps``: C++ socket client 
-  (``fix_maxwelllink``) for LAMMPS, inspired by the `i-PI <https://docs.ipi-code.org/>`_ project.
+- ``src/maxwelllink/mxl_drivers/``: Python molecular drivers (TLS,
+  QuTiP, RTTDDFT, ASE, ...) and LAMMPS code for the C++ molecular driver.
 - ``src/maxwelllink/em_solvers``: EM backends such as the Meep wrapper and the
   single-mode cavity solver. Each solver ships its own unit system and molecule
   wrapper.
 - ``tests/``: Pytest suites that exercise both socket and embedded modes.
-- ``docs/source``: User and developer documentation. Please document any new public
+- ``docs/source/``: User and developer documentation. Please document any new public
   feature here.
+- ``skills/``: Agent Skills for AI integration (experimental).
+
+
+.. admonition:: Numerical considerations for implementing a molecular driver
+
+  Before going to technical details, one should note that by default, **MaxwellLink** sends the regularized E-field vector at step :math:`n` to the molecular driver and
+  expects the molecular dipole time derivative at step :math:`n+1/2` in return. This requirement is particularly important for
+  **energy conservation** in the FDTD EM solvers, which use E-field and electric current densities in staggered time grids.
+
+  This requirement is automatically satisfied if the molecular driver propagates electronic dynamics when building the Hamiltonian
+  at mid-point time steps (such as RT-TDDFT or using model Hamiltonians):
+
+  .. math::
+
+     \mathbf{P}^{\mathrm{e}}(t+\Delta t/2) = e^{-i \mathbf{H}^{\mathrm{e}}(t) \Delta t / \hbar} \mathbf{P}^{\mathrm{e}}(t-\Delta t/2) e^{i \mathbf{H}^{\mathrm{e}}(t) \Delta t / \hbar} .
+
+  Molecular information calculated using the new density matrix :math:`\mathbf{P}^{\mathrm{e}}(t+\Delta t/2)` (such as dipole moment and its time derivative) will then correspond to step :math:`n+1/2`.
+
+  However, if the molecular drivers use a velocity-verlet algorithm to propagate nuclear motion (such as classical MD drivers), special care is needed to ensure the dipole time derivative is evaluated at step :math:`n+1/2`. 
+  This is because in a standard velocity-verlet scheme, the electric field alters nuclear forces at step :math:`n`, 
+  while nuclear velocities (and thus dipole time derivatives) and positions (and thus dipole vectors) are also updated to step :math:`n` at the end of one velocity-verlet cycle. In other words, both the sent E-field
+  and the returned dipole time derivative (or dipole vector) correspond to the same step, violating the staggered time grid requirement in **MaxwellLink**.
+
+  To resolve this issue, developers can (i) return the extrapolated dipole time derivative (and dipole vector) at step :math:`n+1/2` using the computed values at steps :math:`n` 
+  and previously returned values at step :math:`n-1/2`.
+
+  .. math::
+
+     \frac{d\mu}{dt}\Big|_{t+(n+1/2)\Delta t} \approx 2 \frac{d\mu}{dt}\Big|_{t+n\Delta t} - \frac{d\mu}{dt}\Big|_{t+(n-1/2)\Delta t} .
+
+  Of course, developers may also (ii) further propagate nuclear velocities to step :math:`n+1/2` internally to return the correct dipole time derivative, but this would cause more difficulties in implementation and can be more expensive, especially if
+  the users wish to maintain compatibility with existing MD codes. For example, in LAMMPS, this would require an additional MPI for loop over all atoms, which can be costly for large systems.
+
+  Users should be aware of these numerical considerations when developing new molecular drivers that involve nuclear motion.
+
 
 Adding a Python Molecular Driver
 --------------------------------
@@ -107,37 +139,6 @@ the socket protocol. The LAMMPS driver (``fix_maxwelllink.cpp``) serves as a
 production-ready reference for implementation. Experienced developers
 can modify the LAMMPS driver to connect production-level codes to MaxwellLink.
 
-.. admonition:: Numerical considerations for implementing a molecular driver
-
-  By default, **MaxwellLink** sends the regularized E-field vector at step :math:`n` to the molecular driver and
-  expects the molecular dipole time derivative at step :math:`n+1/2` in return. This requirement is particularly important for
-  **energy conservation** in the FDTD EM solvers, which use E-field and electric current densities in staggered time grids.
-
-  This requirement is automatically satisfied if the molecular driver propagates electronic dynamics when building the Hamiltonian
-  at mid-point time steps (such as RT-TDDFT or using model Hamiltonians):
-
-  .. math::
-
-     \mathbf{P}^{\mathrm{e}}(t+\Delta t/2) = e^{-i \mathbf{H}^{\mathrm{e}}(t) \Delta t / \hbar} \mathbf{P}^{\mathrm{e}}(t-\Delta t/2) e^{i \mathbf{H}^{\mathrm{e}}(t) \Delta t / \hbar} .
-
-  Molecular information calculated using the new density matrix :math:`\mathbf{P}^{\mathrm{e}}(t+\Delta t/2)` (such as dipole moment and its time derivative) will then correspond to step :math:`n+1/2`.
-
-  However, if the molecular drivers use a velocity-verlet algorithm to propagate nuclear motion (such as classical MD drivers), special care is needed to ensure the dipole time derivative is evaluated at step :math:`n+1/2`. 
-  This is because in a standard velocity-verlet scheme, the electric field alters nuclear forces at step :math:`n`, 
-  while nuclear velocities (and thus dipole time derivatives) and positions (and thus dipole vectors) are also updated to step :math:`n` at the end of one velocity-verlet cycle. In other words, both the sent E-field
-  and the returned dipole time derivative (or dipole vector) correspond to the same step, violating the staggered time grid requirement in **MaxwellLink**.
-
-  To resolve this issue, developers can (i) return the extrapolated dipole time derivative (and dipole vector) at step :math:`n+1/2` using the computed values at steps :math:`n` 
-  and previously returned values at step :math:`n-1/2`.
-
-  .. math::
-
-     \frac{d\mu}{dt}\Big|_{t+(n+1/2)\Delta t} \approx 2 \frac{d\mu}{dt}\Big|_{t+n\Delta t} - \frac{d\mu}{dt}\Big|_{t+(n-1/2)\Delta t} .
-
-  Of course, developers may also (ii) further propagate nuclear velocities to step :math:`n+1/2` internally to return the correct dipole time derivative, but this would cause more difficulties in implementation and can be more expensive, especially if
-  the users wish to maintain compatibility with existing MD codes. For example, in LAMMPS, this would require an additional MPI for loop over all atoms, which can be costly for large systems.
-
-  Users should be aware of these numerical considerations when developing new molecular drivers that involve nuclear motion.
 
 
 Implementing a New EM Solver

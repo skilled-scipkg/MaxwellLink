@@ -1160,6 +1160,23 @@ body.mxl-landing .mxl-loop-card > * {
   letter-spacing: -0.01em;
 }
 
+.content h1 {
+  font-size: clamp(1.6rem, 1.1rem + 1.6vw, 2.0rem);
+}
+
+.content h2 {
+  font-size: clamp(1.2rem, 1rem + 1.1vw, 1.6rem);
+}
+
+.content h3 {
+  font-size: clamp(0.9rem, 0.95rem + 0.8vw, 1.3rem);
+}
+
+.content h4 {
+  font-size: clamp(0.75rem, 0.9rem + 0.4vw, 1.0rem);
+  font-weight: 600;
+}
+
 .content p {
   font-size: 1.02rem;
   color: var(--mxl-text-muted);
@@ -1253,7 +1270,8 @@ body.mxl-landing .mxl-command {
 
 .sidebar .sidebar-brand-text {
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
+  font-size: 0.85rem;
 }
 
 .sidebar nav a.current {
@@ -1357,4 +1375,8 @@ body.mxl-landing .main > .content > .article-container > article {
   margin: 0;
   max-width: none;
   width: 100%;
+}
+
+body.mxl-landing h1.mxl-hero__title {
+  font-size: clamp(2.0rem, 4.0vw, 3.0rem) !important;
 }

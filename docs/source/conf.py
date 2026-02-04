@@ -16,6 +16,10 @@ try:
 except PackageNotFoundError:
     release = version = "0.2.0"
 
+# Keep the sidebar title compact (avoid the default "documentation" suffix).
+html_title = f"{project} {release}"
+html_short_title = html_title
+
 # --- Extensions ---
 extensions = [
     "sphinx.ext.autodoc",

@@ -18,6 +18,7 @@
 
         <nav class="mxl-topbar__nav" aria-label="Landing page">
           <a class="mxl-topbar__link" href="#features">Highlights</a>
+          <a class="mxl-topbar__link" href="#solvers">Solvers</a>
           <a class="mxl-topbar__link" href="#sockets">Sockets</a>
           <a class="mxl-topbar__link" href="#agent">Agent Skills</a>
         </nav>
@@ -88,7 +89,7 @@
                 </div>
                 <div class="mxl-mini__row">
                   <span class="mxl-mini__label">Scaling</span>
-                  <span class="mxl-mini__value">Local → multi-node HPC</span>
+                  <span class="mxl-mini__value">Local and HPC</span>
                 </div>
                 <div class="mxl-mini__row">
                   <span class="mxl-mini__label">Automation</span>
@@ -103,14 +104,14 @@
         </div>
       </section>
 
-      <section class="mxl-section" id="features">
+      <section class="mxl-section mxl-section--alt" id="features">
         <div class="mxl-container">
           <div class="mxl-section__head">
             <h2>Scientific workflow, modern architecture</h2>
             <p>
               MaxwellLink is built for large-scale and heterogeneous light–matter simulations.
-              Its modular design enables flexible combinations of electromagnetic solvers and molecular drivers,
-              all through a unified Python interface.
+              Its modular architecture unifies self-consistent coupling, socketed execution, and automation
+              under one Python interface.
             </p>
           </div>
 
@@ -121,6 +122,17 @@
               <div class="mxl-card__tags">
                 <span class="mxl-pill">Light & Matter</span>
                 <span class="mxl-pill">Multiscale simulations</span>
+              </div>
+            </article>
+
+            <article class="mxl-card">
+              <h3>Extensible modules</h3>
+              <p>
+                Choose your EM solver or molecular driver via uniform Python interface.
+              </p>
+              <div class="mxl-card__tags">
+                <span class="mxl-pill">Plugin-ready</span>
+                <span class="mxl-pill">Custom solvers</span>
               </div>
             </article>
 
@@ -136,25 +148,48 @@
             </article>
 
             <article class="mxl-card">
-              <h3>Heterogeneous drivers</h3>
-              <p>
-                Mix quantum models, first-principles electron dynamics, and nuclear dynamics drivers in one EM simulation.
-              </p>
-              <div class="mxl-card__tags">
-                <span class="mxl-pill">TLS / QuTiP</span>
-                <span class="mxl-pill">Psi4</span>
-                <span class="mxl-pill">ASE / LAMMPS</span>
-              </div>
-            </article>
-
-            <article class="mxl-card">
               <h3>Agent Skills automation</h3>
               <p>
-                Starting by using natural language prompts to run simulations in both local machines and HPC.
+                Start from a natural-language prompt to generate inputs and launch runs on local machines or HPC.
               </p>
               <div class="mxl-card__tags">
                 <span class="mxl-pill">User-friendly</span>
                 <span class="mxl-pill">AI workflow</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="mxl-section" id="solvers">
+        <div class="mxl-container">
+          <div class="mxl-section__head">
+            <h2>Pluggable light &amp; matter solvers</h2>
+            <p>
+              MaxwellLink lets you choose the EM solver that fits your geometry and scale, then couple it to one
+              or more molecular drivers. Each driver can run at a different level of theory, from effective models,
+              open quantum dynamics, real-time electronic structure, to classical MD, all inside the same self-consistent loop.
+            </p>
+          </div>
+
+          <div class="mxl-cards">
+            <article class="mxl-card">
+              <h3>User-chosen EM engines</h3>
+              <p>Swap the EM backend without rewriting the simulation logic.</p>
+              <div class="mxl-card__tags">
+                <span class="mxl-pill">MEEP FDTD</span>
+                <span class="mxl-pill">Single-mode cavity</span>
+                <span class="mxl-pill">Prescribed field</span>
+              </div>
+            </article>
+
+            <article class="mxl-card">
+              <h3>Heterogeneous molecular drivers</h3>
+              <p>Mix drivers at different theory levels within one EM run.</p>
+              <div class="mxl-card__tags">
+                <span class="mxl-pill">TLS / QuTiP</span>
+                <span class="mxl-pill">real-time nonadiabatic dynamics (Psi4)</span>
+                <span class="mxl-pill">ASE / LAMMPS</span>
               </div>
             </article>
           </div>
