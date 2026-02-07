@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time=2-00:00:00
+#SBATCH --time=02:00:00
 #SBATCH -J __PROJECT___main
 #SBATCH -o main.%j.out
 #SBATCH -e main.%j.err

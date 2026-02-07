@@ -206,12 +206,6 @@ def main(argv: list[str]) -> int:
                 _validate_meep_unix_cfg(cfg, errors)
                 _require((project_dir / "em.py").exists(), "Missing em.py", errors)
                 _require((project_dir / "driver.py").exists(), "Missing driver.py", errors)
-            elif template_id == "meep-lammps-socket-unix":
-                _validate_meep_lammps_unix_cfg(cfg, errors)
-                _require((project_dir / "em.py").exists(), "Missing em.py", errors)
-                _require((project_dir / "driver.py").exists(), "Missing driver.py", errors)
-                _require((project_dir / "in_mxl.lmp").exists(), "Missing in_mxl.lmp", errors)
-                _require((project_dir / "data.lmp").exists(), "Missing data.lmp", errors)
             elif template_id == "singlemode-tls-socket-tcp":
                 _validate_singlemode_cfg(cfg, errors)
                 _require((project_dir / "em.py").exists(), "Missing em.py", errors)

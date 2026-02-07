@@ -12,13 +12,13 @@ MaxwellLink is a modular, open-source Python framework for self-consistent light
 
 ## Performing simulations: General guidelines
 
-- Once being asked to directly perform MaxwellLink simulations, first generate the proper input files with your maximal efforts following ## Preparing input files. Then, perform an independent code review of the generated input files using knowledge from `skills/`. Finally, if `sbatch` command is available, add a SLRUM bash script to submit this simulation within the local subfolder of the input files; otherwise directly perform simulations locally.
+- Once being asked to directly perform MaxwellLink simulations, first generate the proper input files with your maximal efforts following ## Preparing input files. Then, perform an independent code review of the generated input files using knowledge from `skills/`. Finally, in HPC slurm settings, add a SLRUM bash script to submit this simulation within the local subfolder of the input files; otherwise directly perform simulations locally.
 
 - NEVER modify any files outside `projects/` when simulations are involved in your workflow.
 
 ## Performing simulations: HPC systems
 
-- If `sbatch` command is available, add a SLRUM bash script to submit this simulation within the local subfolder of the input files, according to the HPC setting given at `skills/mxl-hpc-slurm/resources/hpc_setting.md`. Then, submit the SLURM jobs.
+- In HPC slurm settings, add a SLRUM bash script to submit this simulation within the local subfolder of the input files, according to the HPC setting given at `skills/mxl-hpc-slurm/resources/hpc_setting.md`. Then, submit the SLURM jobs.
 
 ## Postprocessing 
 
