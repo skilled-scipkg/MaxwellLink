@@ -42,6 +42,10 @@ def _require_str(x: Any, msg: str, errors: list[ValidationError]) -> None:
     _require(isinstance(x, str) and x.strip() != "", msg, errors)
 
 
+def _require_bool(x: Any, msg: str, errors: list[ValidationError]) -> None:
+    _require(isinstance(x, bool), msg, errors)
+
+
 def _validate_common(cfg: Any, errors: list[ValidationError]) -> None:
     _require(isinstance(cfg, dict), "config.json must contain a JSON object", errors)
     if not isinstance(cfg, dict):
@@ -170,6 +174,102 @@ def _validate_slurm_meep_lammps_tcp_cfg(cfg: dict, errors: list[ValidationError]
         _require_str(lammps.get("data"), "lammps.data must be a non-empty string", errors)
 
 
+def _validate_slurm_meep_plasmon_rteh_tcp_cfg(cfg: dict, errors: list[ValidationError]) -> None:
+    _require_str(cfg.get("host_port_file"), "host_port_file must be a non-empty string", errors)
+
+    run_cfg = cfg.get("run")
+    _require(isinstance(run_cfg, dict), "run must be an object", errors)
+    if isinstance(run_cfg, dict):
+        _require_bool(run_cfg.get("include_dielectric"), "run.include_dielectric must be a bool", errors)
+        _require_bool(run_cfg.get("include_molecules"), "run.include_molecules must be a bool", errors)
+        _require_number(run_cfg.get("until"), "run.until must be a number (Meep time units)", errors)
+        _require_int(run_cfg.get("nmol"), "run.nmol must be an int", errors)
+        _require_number(run_cfg.get("lattice_a_um"), "run.lattice_a_um must be a number", errors)
+        _require_number(run_cfg.get("rod_radius_fraction"), "run.rod_radius_fraction must be a number", errors)
+        _require_number(run_cfg.get("theta_deg"), "run.theta_deg must be a number", errors)
+
+    units_cfg = cfg.get("units")
+    _require(isinstance(units_cfg, dict), "units must be an object", errors)
+    if isinstance(units_cfg, dict):
+        _require_number(units_cfg.get("time_units_fs"), "units.time_units_fs must be a number", errors)
+
+    meep_cfg = cfg.get("meep")
+    _require(isinstance(meep_cfg, dict), "meep must be an object", errors)
+    if isinstance(meep_cfg, dict):
+        _require_int(meep_cfg.get("resolution"), "meep.resolution must be an int", errors)
+        _require_number(meep_cfg.get("tabs_um"), "meep.tabs_um must be a number", errors)
+        _require_number(meep_cfg.get("tair_um"), "meep.tair_um must be a number", errors)
+        _require_number(meep_cfg.get("h_um"), "meep.h_um must be a number", errors)
+        _require_number(meep_cfg.get("tmet_um"), "meep.tmet_um must be a number", errors)
+        _require_number(meep_cfg.get("tsub_um"), "meep.tsub_um must be a number", errors)
+        _require_number(
+            meep_cfg.get("wavelength_min_um"),
+            "meep.wavelength_min_um must be a number",
+            errors,
+        )
+        _require_number(
+            meep_cfg.get("wavelength_max_um"),
+            "meep.wavelength_max_um must be a number",
+            errors,
+        )
+        _require_number(
+            meep_cfg.get("source_amplitude"),
+            "meep.source_amplitude must be a number",
+            errors,
+        )
+
+    molecule_cfg = cfg.get("molecule")
+    _require(isinstance(molecule_cfg, dict), "molecule must be an object", errors)
+    if isinstance(molecule_cfg, dict):
+        _require_number(
+            molecule_cfg.get("cube_length_um"),
+            "molecule.cube_length_um must be a number",
+            errors,
+        )
+        _require_number(
+            molecule_cfg.get("sigma_fraction"),
+            "molecule.sigma_fraction must be a number",
+            errors,
+        )
+        _require_int(
+            molecule_cfg.get("dimensions"),
+            "molecule.dimensions must be an int (1|2|3)",
+            errors,
+        )
+        _require_number(
+            molecule_cfg.get("rescaling_factor"),
+            "molecule.rescaling_factor must be a number",
+            errors,
+        )
+
+    rte_cfg = cfg.get("rtehrenfest")
+    _require(isinstance(rte_cfg, dict), "rtehrenfest must be an object", errors)
+    if isinstance(rte_cfg, dict):
+        _require_str(rte_cfg.get("molecule_xyz"), "rtehrenfest.molecule_xyz must be a non-empty string", errors)
+        _require_str(rte_cfg.get("functional"), "rtehrenfest.functional must be a non-empty string", errors)
+        _require_str(rte_cfg.get("dft_grid_name"), "rtehrenfest.dft_grid_name must be a non-empty string", errors)
+        _require_str(rte_cfg.get("basis"), "rtehrenfest.basis must be a non-empty string", errors)
+        _require_number(rte_cfg.get("dt_rttddft_au"), "rtehrenfest.dt_rttddft_au must be a number", errors)
+        _require_str(rte_cfg.get("memory"), "rtehrenfest.memory must be a non-empty string", errors)
+        _require_int(rte_cfg.get("num_threads"), "rtehrenfest.num_threads must be an int", errors)
+        _require_int(rte_cfg.get("n_fock_per_nuc"), "rtehrenfest.n_fock_per_nuc must be an int", errors)
+        _require_int(rte_cfg.get("n_elec_per_fock"), "rtehrenfest.n_elec_per_fock must be an int", errors)
+
+    launch_cfg = cfg.get("driver_launch")
+    _require(isinstance(launch_cfg, dict), "driver_launch must be an object", errors)
+    if isinstance(launch_cfg, dict):
+        _require_int(
+            launch_cfg.get("clients_per_job"),
+            "driver_launch.clients_per_job must be an int",
+            errors,
+        )
+        _require_int(
+            launch_cfg.get("wait_timeout_s"),
+            "driver_launch.wait_timeout_s must be an int",
+            errors,
+        )
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         print("Usage: mxl_validate_project.py <path/to/projects/YYYY-MM-DD-NAME>", file=sys.stderr)
@@ -227,6 +327,14 @@ def main(argv: list[str]) -> int:
                 _require((project_dir / "submit_lammps.sh").exists(), "Missing submit_lammps.sh", errors)
                 _require((project_dir / "in_mxl.lmp").exists(), "Missing in_mxl.lmp", errors)
                 _require((project_dir / "data.lmp").exists(), "Missing data.lmp", errors)
+            elif template_id == "slurm-meep-plasmon-rteh-tcp":
+                _validate_slurm_meep_plasmon_rteh_tcp_cfg(cfg, errors)
+                _require((project_dir / "em_main.py").exists(), "Missing em_main.py", errors)
+                _require((project_dir / "driver.py").exists(), "Missing driver.py", errors)
+                _require((project_dir / "submit_main.sh").exists(), "Missing submit_main.sh", errors)
+                _require((project_dir / "submit_driver.sh").exists(), "Missing submit_driver.sh", errors)
+                _require((project_dir / "submit_all.sh").exists(), "Missing submit_all.sh", errors)
+                _require((project_dir / "HCN_benchmark" / "hcn.xyz").exists(), "Missing HCN_benchmark/hcn.xyz", errors)
             else:
                 _require(False, f"Unknown template_id: {template_id!r}", errors)
 

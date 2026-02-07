@@ -134,6 +134,7 @@ sbatch --dependency=after:${job_main_id} submit_driver.sh
 - Ensure the host/port file is written to a filesystem visible to both jobs (shared workdir or `$SLURM_SUBMIT_DIR`).
 - For `N` molecules, launch `N` driver processes; the hub assigns molecule IDs automatically as clients connect.
 - If `socket.gethostname()` is not resolvable from the driver node, set `MXL_HOST` explicitly (e.g. `export MXL_HOST=$(hostname -f)`).
+- For 3D plasmonic Meep + RT-Ehrenfest molecular lattices, use scaffold template: `skills/mxl-project-scaffold/assets/templates/slurm-meep-plasmon-rteh-tcp`.
 
 ## Parameter sweeps
 - Prefer one directory per case (keeps outputs separated), with a small `submit_all.sh` that chains `sbatch` submissions.

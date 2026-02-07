@@ -30,6 +30,7 @@ description: This skill should be used when users need to run MaxwellLink in SLU
 ## Prefer templates
 - TLS over TCP template: `skills/mxl-project-scaffold/assets/templates/slurm-meep-tls-tcp`
 - LAMMPS over TCP template: `skills/mxl-project-scaffold/assets/templates/slurm-meep-lammps-tcp`
+- 3D plasmonic Meep + RT-Ehrenfest over TCP template: `skills/mxl-project-scaffold/assets/templates/slurm-meep-plasmon-rteh-tcp`
 
 ## References
 - Recipes: `skills/mxl-hpc-slurm/references/slurm_recipes.md`

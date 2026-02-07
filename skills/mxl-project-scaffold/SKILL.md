@@ -28,3 +28,4 @@ description: This skill should be used when users ask to prepare MaxwellLink inp
 - `laser-tls-embedded`: LaserDrivenSimulation + embedded TLS (prescribed field)
 - `slurm-meep-tls-tcp`: SLURM two-step main+driver jobs over TCP (multi-node pattern), writes `tcp_host_port_info.txt`
 - `slurm-meep-lammps-tcp`: SLURM two-step Meep+LAMMPS (`fix mxl`) jobs over TCP, patches `in_mxl.lmp` and runs `lmp_mxl`
+- `slurm-meep-plasmon-rteh-tcp`: SLURM two-step 3D plasmonic Meep + multi-molecule Psi4 RT-Ehrenfest drivers over TCP (adapted from `meep_plasmon_HCN_excitation_rteh_strong`)

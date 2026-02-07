@@ -25,6 +25,7 @@ All Python drivers run via `mxl_driver --model <id> --param "k1=v1, ..."` (socke
 - Use: RT-TDDFT plus nuclear motion (Ehrenfest or BO). Dep: `psi4`.
 - Key params: inherits RT-TDDFT plus `force_type=ehrenfest|bo`, `n_fock_per_nuc`, `n_elec_per_fock`, `mass_amu`, `friction_gamma_au`, `temperature_K`, `rng_seed`, `partial_charges`, `fix_nuclei_indices`, `save_xyz`, `homo_to_lumo`.
 - CLI tip: when passing `partial_charges`, use a space-separated list in brackets (no commas), e.g. `partial_charges=[1.0 -1.0 0.0]`.
+- Starter template for 3D plasmonic + multi-molecule RT-Ehrenfest workflows: `skills/mxl-project-scaffold/assets/templates/slurm-meep-plasmon-rteh-tcp`.
 
 ## ASE (`ase`)
 - Use: Born–Oppenheimer MD with any ASE calculator (Psi4/ORCA/DFTB+/...). Dep: `ase` plus calculator deps.

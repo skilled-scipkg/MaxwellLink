@@ -21,6 +21,7 @@ description: This skill should be used when users need MaxwellLink + Meep FDTD w
 - Start from the copy-ready templates:
   - `skills/mxl-project-scaffold/assets/templates/meep-tls-embedded`
   - `skills/mxl-project-scaffold/assets/templates/meep-tls-socket-unix`
+  - `skills/mxl-project-scaffold/assets/templates/slurm-meep-plasmon-rteh-tcp` (3D plasmonic structure + RT-Ehrenfest molecular lattice)
 - Use SLURM/HPC patterns from `skills/mxl-hpc-slurm/SKILL.md` for multi-node socket runs.
 
 ## References

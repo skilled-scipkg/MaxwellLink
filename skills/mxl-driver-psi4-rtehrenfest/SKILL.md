@@ -21,4 +21,5 @@ description: This skill should be used when users want to run the Psi4 RT-Ehrenf
 - Use `force_type=bo` when nuclear gradients from Born–Oppenheimer surfaces are required; use `force_type=ehrenfest` for mean-field forces.
 - When passing `partial_charges` on the command line, use a space-separated list in brackets (no commas), e.g. `partial_charges=[1.0 -1.0 0.0]`.
 - On HPC, match `num_threads` to `--cpus-per-task` (single driver) or set `num_threads=1` when launching many drivers in the same SLURM job.
+- For coupled 3D plasmonic Meep + many RT-Ehrenfest drivers, prefer scaffold template: `skills/mxl-project-scaffold/assets/templates/slurm-meep-plasmon-rteh-tcp`.
 - Read full parameter docs in `docs/source/drivers/rtehrenfest.rst`.
