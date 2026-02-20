@@ -1,0 +1,33 @@
+{
+  "docs_dirs": [
+    "docs/source"
+  ],
+  "docs_only": false,
+  "notes": [
+    "Refreshed on 2026-02-20 for FermiLink recompile pass 1/3 (paper plan generation).",
+    "Compile memory was read first from skills/.evidence/memory.md before regenerating this profile.",
+    "Scope is now comment-filtered to plasmonic results (Fig.5b,d,e): flux spectrum + molecular-driver dynamics.",
+    "Repository rediscovery confirms MaxwellLink runtime coverage for the scoped plan via Meep EM solver plus TLS/ASE molecular drivers.",
+    "Paper-context data manifest contains canonical plasmon paths under implementation_2025/meep_plasmon_empty and implementation_2025/meep_plasmon_HCN_excitation_{tls,bomd,rteh}_strong.",
+    "Skill alignment checked for scoped methods: mxl-meep, mxl-driver-tls, mxl-driver-ase, and mxl-hpc-slurm."
+  ],
+  "package_name": "maxwelllink",
+  "profile_path": "skills/.compile_profile.json",
+  "profile_source": "file",
+  "source_dirs": [
+    "src/maxwelllink"
+  ],
+  "test_dirs": [
+    "tests/test_agents",
+    "tests/test_ase",
+    "tests/test_psi4_rttddft",
+    "tests/test_qutip",
+    "tests/test_singlemode",
+    "tests/test_tls"
+  ],
+  "tutorial_dirs": [
+    "tutorials",
+    "docs/source/tutorials"
+  ],
+  "warnings": []
+}
