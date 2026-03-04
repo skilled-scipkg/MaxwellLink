@@ -34,3 +34,7 @@ description: This skill should be used when users ask how to set up, choose, or 
   - SLURM/HPC: `skills/mxl-hpc-slurm/SKILL.md`
   - Post-processing/export: `skills/mxl-postprocess/SKILL.md`
   - Troubleshooting: `skills/mxl-troubleshoot/SKILL.md`
+
+## Advanced Topics
+- Paper tutorial routing (water VSC manuscript track, Figure 3a-3c / requested Fig.4 scope alias): `skills/paper_tutorial_vsc_water/SKILL.md`
+- Paper tutorial routing (plasmonic Pt/Si flux + HCN heating maps, Figure 5b/5d/5e): `skills/paper_tutorial_plasmon_heating/SKILL.md`
