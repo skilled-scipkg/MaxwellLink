@@ -2,19 +2,11 @@ Usage Guide
 ===========
 
 This guide walks through **three** ways to couple :class:`~maxwelllink.molecule.molecule.Molecule` with
-EM solvers using a single TLS molecule as the working example. Users can
-check tutorials under :doc:`tutorials/index` for more detailed examples and
-explanations.
+EM solvers using a single TLS molecule as the working example. 
 
-.. note::
+Users can check tutorials under :doc:`tutorials/index` for more detailed examples and explanations.
 
-   **MaxwellLink** ships a legacy :class:`~maxwelllink.molecule.molecule_legacy.SocketMolecule` API
-   used throughout ``tests/test_tls``. The patterns below focus on the unified
-   :class:`~maxwelllink.molecule.molecule.Molecule` interface, which works for both socket and
-   embedded (non-socket) drivers.
-
-When using `Meep <https://meep.readthedocs.io/en/latest/>`_ FDTD as the EM solver, below we will introduce three ways
-to run self-consistent light-matter simulations with a TLS molecule.
+We first introduce the simulation guidelines for using `Meep <https://meep.readthedocs.io/en/latest/>`_ FDTD as the EM solver.
 
 Single process (no sockets)
 ---------------------------
@@ -61,10 +53,9 @@ Local multi-process run (UNIX socket)
 -------------------------------------
 
 When we want `Meep <https://meep.readthedocs.io/en/latest/>`_ and the molecular driver to run as separate processes on the
-same machine, use a UNIX domain socket. The hub listens on ``/tmp/socketmxl_<name>``
-and the driver connects with ``--unix``.
+same machine, use a UNIX domain socket. 
 
-`Meep <https://meep.readthedocs.io/en/latest/>`_ script:
+EM script:
 
 .. code-block:: python
 
@@ -92,14 +83,14 @@ and the driver connects with ``--unix``.
 
    sim.run(until=90)
 
-Driver command (same laptop/workstation):
+After running the above Python script, in a different terminal, run the following command on the same laptop/workstation:
 
 .. code-block:: bash
 
    mxl_driver --model tls --unix --address tls_demo \
      --param "omega=0.242, mu12=187, orientation=2, pe_initial=1e-3"
 
-UNIX sockets avoid port collisions and usually takes less time for communication.
+UNIX sockets avoid port collisions and usually have less communication overhead.
 **MaxwellLink** waits for the driver to connect before advancing the simulation.
 
 Distributed run (TCP socket)
@@ -108,7 +99,7 @@ Distributed run (TCP socket)
 For multi-node deployments (e.g., `Meep <https://meep.readthedocs.io/en/latest/>`_ on one node and ``mxl_driver`` on another),
 use a TCP socket. Let the OS pick a free port to prevent clashes.
 
-Meep script:
+EM script:
 
 .. code-block:: python
 
@@ -151,7 +142,7 @@ Driver command (run on the remote node):
    mxl_driver --model tls --address <meep-hostname> --port <port> \
      --param "omega=0.242, mu12=187, orientation=2, pe_initial=1e-3"
 
-Replace ``<meep-hostname>`` with the reachable address of the `Meep <https://meep.readthedocs.io/en/latest/>`_ node. Open
+Replace ``<meep-hostname>`` with the reachable IP address of the `Meep <https://meep.readthedocs.io/en/latest/>`_ node. Open
 firewall ports if required by your cluster configuration.
 
 
@@ -215,18 +206,18 @@ input bash script launches one main job and two driver jobs. The two driver jobs
 Inspecting TLS output
 ---------------------
 
-In all the above workflows, after ``sim.run`` completes, the code below recovers the excited-state
+In all the above workflows, after ``sim.run`` completes, using the ``extra`` variable, the code below recovers the excited-state
 population and the simulation time in atomic units.
 
 .. code-block:: python
 
-   import numpy as np
-
-   population = np.array([entry["Pe"] for entry in tls.additional_data_history])
-   time_au = np.array([entry["time_au"] for entry in tls.additional_data_history])
+   population = np.array(tls.extra["Pe"])
+   time_au = np.array(tls.extra["time_au"])
 
 We can then compare the electronic excited-state trajectory to the analytical golden-rule result as shown in
 :doc:`tutorials/notebook/meep_tls_spontaneous_emission`.
+
+
 
 MPI execution
 -------------

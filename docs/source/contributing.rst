@@ -2,10 +2,10 @@ Contributing
 ============
 
 This page highlights the key extension points in **MaxwellLink** and the patterns we
-recommend when adding new molecular drivers or electromagnetics (EM) solvers. The
-codebase follows a “thin core, pluggable backends” design: the socket protocol,
-shared unit helpers, and :class:`~maxwelllink.molecule.molecule.Molecule` abstraction hide most of the
-coupling logic so new components only need to implement domain-specific details.
+recommend when adding new molecular drivers or electromagnetic (EM) solvers. The
+codebase follows a “thin core, pluggable backends” design, where shared infrastructure
+hides most of the coupling logic so that new components only need to implement
+domain-specific details.
 
 Source Layout
 -------------
@@ -23,7 +23,7 @@ Source Layout
 
 .. admonition:: Numerical considerations for implementing a molecular driver
 
-  Before going to technical details, one should note that by default, **MaxwellLink** sends the regularized E-field vector at step :math:`n` to the molecular driver and
+  Before getting into technical details, one should note that by default, **MaxwellLink** sends the regularized E-field vector at step :math:`n` to the molecular driver and
   expects the molecular dipole time derivative at step :math:`n+1/2` in return. This requirement is particularly important for
   **energy conservation** in the FDTD EM solvers, which use E-field and electric current densities in staggered time grids.
 
@@ -48,7 +48,7 @@ Source Layout
 
      \frac{d\mu}{dt}\Big|_{t+(n+1/2)\Delta t} \approx 2 \frac{d\mu}{dt}\Big|_{t+n\Delta t} - \frac{d\mu}{dt}\Big|_{t+(n-1/2)\Delta t} .
 
-  Of course, developers may also (ii) further propagate nuclear velocities to step :math:`n+1/2` internally to return the correct dipole time derivative, but this would cause more difficulties in implementation and can be more expensive, especially if
+  Of course, developers may also (ii) further propagate nuclear velocities to step :math:`n+1/2` internally to return the correct dipole time derivative, but this would be more difficult to implement and potentially more expensive, especially if
   the users wish to maintain compatibility with existing MD codes. For example, in LAMMPS, this would require an additional MPI for loop over all atoms, which can be costly for large systems.
 
   Users should be aware of these numerical considerations when developing new molecular drivers that involve nuclear motion.
@@ -76,7 +76,7 @@ Driver skeleton
      class handles the stage/commit protocol used by the socket driver.
 
    - Override :meth:`append_additional_data` if you wish to stream diagnostics back
-     to the EM solver (they appear in ``Molecule.additional_data_history`` and also in ``Molecule.extra``).
+     to the EM solver (they appear in both ``Molecule.additional_data_history`` and ``Molecule.extra``).
 
    - Implement ``_dump_to_checkpoint`` / ``_reset_from_checkpoint`` when
      checkpoint/restart is desirable.
@@ -143,17 +143,17 @@ can modify the LAMMPS driver to connect production-level codes to MaxwellLink.
 Implementing a New EM Solver
 --------------------------------
   
-EM solvers orchestrate the Maxwell-time stepping, query molecules for their source
-amplitudes, and convert between native units and atomic units. Existing backends
-(``meep.py`` and ``single_mode_cavity.py``) demonstrate both a grid-based FDTD EM solver and
+EM solvers orchestrate the Maxwell time-stepping loop, querying molecules for their
+source amplitudes and converting between native and atomic units. The existing backends
+(``meep.py`` and ``single_mode_cavity.py``) illustrate both a full grid-based FDTD solver and
 a single-mode cavity toy model.
 
 Core building blocks
 ~~~~~~~~~~~~~~~~~~~~
 
 - :class:`~maxwelllink.em_solvers.dummy_em.DummyEMUnits` stores conversion routines.
-  Subclass it to translate native electric fields, source amplitudes, and time steps
-  into atomic units.
+  Subclass it to handle unit conversions between native fields and time steps and
+  their atomic-unit equivalents.
 
 - :class:`~maxwelllink.em_solvers.dummy_em.MoleculeDummyWrapper` wraps
   :class:`~maxwelllink.molecule.molecule.Molecule` instances so the unique molecular setting for one
@@ -198,15 +198,15 @@ Solver skeleton
 
 4. Implement ``AwesomeSimulation`` that wires everything together. Common steps:
 
-   - Define the time step, and :class:`Molecule` wrappers.
+   - Define the time step and :class:`Molecule` wrappers.
 
    - Split molecules by mode (socket vs. non-socket) and call
      ``m.initialize_driver`` for embedded drivers.
 
    - During each time step:
 
-     * Gather fields at molecular sites, convert them to atomic units with
-       ``AwesomeUnits.efield_em_to_au``, and call ``propagate`` on each wrapper.
+     * Convert the fields at each molecular site to atomic units using
+       ``AwesomeUnits.efield_em_to_au``, then call ``propagate`` on each wrapper.
      * After the solver advances its state, request source amplitudes (socket mode
        via :class:`~maxwelllink.sockets.sockets.SocketHub`, non-socket via ``calc_amp_vector``) and inject them
        back into the EM update.
@@ -224,8 +224,8 @@ Testing and Documentation
 - Extend ``tests/`` with regression coverage for new solvers/drivers. For socket
   clients, prefer lightweight smoke tests that execute within half a minute.
 
-- Update Sphinx docs so users can discover the feature (driver guide, EM solver
-  page, release notes if applicable).
+- Update the Sphinx documentation so users can discover the feature; add or update
+  the relevant driver guide or EM solver page, and include release notes if applicable.
 
 - Run ``make doc html`` locally to ensure the documentation builds cleanly.
   Address any warnings related to the new content before submitting a pull request.

@@ -2,7 +2,7 @@ Installation
 ============
 
 The recommended way to install **MaxwellLink** is through a conda environment that
-provides third-party EM solvers and molecular drivers alongside Python 3.9+.
+provides third-party EM solvers and molecular drivers.
 
 Recommended Installation Option
 ---------------------------------
@@ -10,8 +10,8 @@ Recommended Installation Option
 Prerequisites
 ~~~~~~~~~~~~~~~
 
-- A recent Python (``>=3.9``). **MaxwellLink** is tested with CPython.
-- A working MPI stack (e.g. MPICH or OpenMPI) whenever you plan to run Meep or
+- A recent Python (``>=3.9``).
+- A working MPI stack (e.g. MPICH or OpenMPI) whenever you plan to run
   **MaxwellLink** under ``mpirun``.
 - C/Fortran toolchains supplied by your platform if you plan to build drivers
   such as LAMMPS from source.
@@ -33,8 +33,7 @@ Install **MaxwellLink**
 
    pip install maxwelllink
 
-This installs the Python package together with the ``mxl_driver`` console entry
-point used to launch molecular drivers.
+This installs the **MaxwellLink** package with the necessary dependencies.
 
 Optional EM solvers
 ~~~~~~~~~~~~~~~~~~~~~
@@ -56,7 +55,7 @@ Optional driver dependencies
 
 A two-level system (TLS) model ships with **MaxwellLink** and does not require extra packages.
 Beyond this lightweight driver, **MaxwellLink** supports several molecular drivers that depend on
-third-party packages. Install any molecular drivers below that you want to use from the command line. Each molecular driver can
+third-party packages. Install any molecular drivers below that you want to use. Each molecular driver can
 be pulled into the same conda environment.
 
 .. code-block:: bash
@@ -73,7 +72,7 @@ be pulled into the same conda environment.
    # LAMMPS driver with fix mxl (installs a custom binary lmp_mxl)
    mxl_install_lammps
 
-The `LAMMPS <https://www.lammps.org/>`_ helper downloads, patches, and builds a `LAMMPS <https://www.lammps.org/>`_ executable that contains
+The `LAMMPS <https://www.lammps.org/>`_ helper downloads and builds a modified `LAMMPS <https://www.lammps.org/>`_ executable that contains
 ``fix mxl``; alternatively copy the provided ``fix_maxwelllink.cpp`` and ``fix_maxwelllink.h`` files in source code (src/maxwelllink/mxl_drivers/lammps/) into
 your existing `LAMMPS <https://www.lammps.org/>`_ build and recompile.
 
@@ -81,7 +80,7 @@ your existing `LAMMPS <https://www.lammps.org/>`_ build and recompile.
 Install **MaxwellLink** from source
 --------------------------------------
 
-In the same conda environment, if you are interested in chatting with or contributing to **MaxwellLink**, clone the repository and install the package:
+In the same conda environment, if you would like to explore or contribute to **MaxwellLink**, clone the repository and install the package:
 
 .. code-block:: bash
 
@@ -140,7 +139,13 @@ Vibe simulations
 --------------------------------------
 
 Users can run ``vibe simulations``, i.e., using natural language prompts to set up and run
-**MaxwellLink** simulations. To enable this feature, install either `VS Code IDE + Codex extension <https://developers.openai.com/codex/ide>`_ or `Codex CLI <https://developers.openai.com/codex/cli/>`_.
+**MaxwellLink** simulations, with popular agent providers.
+
+.. note::
+
+   This feature relies on installed ``codex``, ``claude``, or ``gemini`` command line interfaces (CLIs), IDE extensions, or desktop applications. 
+
+Using ``codex`` for an example, install either `VS Code IDE + Codex extension <https://developers.openai.com/codex/ide>`_ or `Codex CLI <https://developers.openai.com/codex/cli/>`_.
 
 Then, open Codex at the root directory of the **MaxwellLink** repository (requiring installing **MaxwellLink** from source) and start to chat:
 
@@ -152,7 +157,7 @@ It supports ``vibe simulations`` on both local machines and HPC clusters. See :d
 
 .. note::
 
-   For users running ``vibe simulations`` on local machines, usually the agent runs on a sandboxed environment. For ``vibe simulations`` on local machines (**not on HPC**), this might conflict with the MPI environment used by `Meep <https://meep.readthedocs.io/en/latest/>`_, leading to failed simulations.
+   When running ``vibe simulations`` on a local machine (**not on HPC**), the agent typically runs in a sandboxed environment. This may conflict with the MPI environment used by `Meep <https://meep.readthedocs.io/en/latest/>`_, leading to failed simulations.
    To resolve this issue, consider installing the serial version of `Meep <https://meep.readthedocs.io/en/latest/>`_ (i.e., without MPI support) instead:
 
    .. code-block:: bash
@@ -162,8 +167,10 @@ It supports ``vibe simulations`` on both local machines and HPC clusters. See :d
 Testing and Validation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-By default, ``pytest`` does not run unit tests for ``vibe simulations`` that require Codex. To run these tests, first install ``codex`` (either the VS Code extension or the CLI tool), 
-then make sure you have logged in with your OpenAI API key or account credentials. Finally, run the unit tests with the ``agent`` marker:
+By default, ``pytest`` does not run unit tests for ``vibe simulations`` that require agent providers. To run these tests, first install ``codex`` CLI (the other agent providers are not supported in the unit tests), 
+then make sure you have logged in with your OpenAI API key or account credentials. 
+
+Run the unit tests with the ``agent`` marker:
 
 .. code-block:: bash
 

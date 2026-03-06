@@ -48,7 +48,7 @@ drivers for both socket communications and non-socket (single-process) runs. Pas
 
 Every molecule records time-resolved data in ``Molecule.additional_data_history`` (a Python list of dicts ordered in the simulation time).
 
-For faciliating obtaining molecular time-resolved data, ``Molecule.extra`` is a dict that stores the post-processed data in the form of Numpy arrays. 
+To facilitate retrieval of molecular time-resolved data, ``Molecule.extra`` is a dict that stores the post-processed data as Numpy arrays.
 The content of ``extra`` is determined by the driver implementation; for example, the TLS driver stores the population trajectory in ``extra["Pe"]`` and the time points in ``extra["time_au"]``.  
 
 In ``Molecule``, each molecule only stores the information necessary for
@@ -120,10 +120,10 @@ Please read :doc:`drivers/index` section for detailed definitions of different m
 MPI Parallelism
 --------------- 
 
-EM solvers, such as `Meep <https://meep.readthedocs.io/en/latest/>`_ FDTD, can be launched under MPI. **MaxwellLink** is compatible with MPI, 
-allowing for distributed simulations. Only the master
-rank (rank 0) interacts with sockets; field integrals and returned molecule responses
-are broadcast to the other ranks via ``mpi4py``.
+EM solvers, such as `Meep <https://meep.readthedocs.io/en/latest/>`_ FDTD, can be launched under MPI. **MaxwellLink** is compatible with MPI,
+enabling distributed simulations. Only the master rank (rank 0) interacts with
+sockets; field integrals and returned molecule responses are broadcast to the other
+ranks via ``mpi4py``.
 
 Checkpointing
 --------------------------

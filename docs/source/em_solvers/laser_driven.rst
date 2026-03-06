@@ -131,4 +131,4 @@ Notes
 
 - This solver does not propagate electromagnetic fields as an independent entity; the user-defined ``drive`` is applied uniformly to all molecules at each time step.
 
-- This solver might appear advantageous for exploring how quantum molecular dynamics might be controlled by altering the shape and phase of the applied laser field.
+- This solver is well suited for studying how molecular dynamics responds to laser fields of varying shape and phase.
