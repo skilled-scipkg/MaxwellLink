@@ -116,6 +116,14 @@ def clean_workspace(
     agents_src = payload_root / "AGENTS.md"
     agents_dst = destination / "AGENTS.md"
 
+    local_hpc_profile = destination / mxl_init._HPC_PROFILE_FILE
+    global_hpc_profile = mxl_init._global_hpc_profile_path()
+    _remove_managed_symlink(
+        local_hpc_profile,
+        global_hpc_profile,
+        force=force,
+    )
+
     for name in mxl_init._AGENT_LINKS:
         dst = destination / name
         _remove_managed_symlink(dst, agents_dst, force=force)

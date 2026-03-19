@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import tempfile
 
@@ -9,6 +10,7 @@ import pytest
 
 import maxwelllink.cli.mxl as mxl
 from maxwelllink.cli import mxl_clean
+from maxwelllink.cli import mxl_hpc
 from maxwelllink.cli import mxl_init
 
 
@@ -72,6 +74,18 @@ def payload_root(tmp_path: Path) -> Path:
 
     (payload / "AGENTS.md").write_text("agents prompt", encoding="utf-8")
     (payload / "README.md").write_text("readme", encoding="utf-8")
+    (payload / "HPC_PROFILE.json").write_text(
+        json.dumps(
+            {
+                "slurm_default_partition": "shared",
+                "slurm_defaults": "--nodes=1 --ntasks=1 --time=01:00:00",
+                "slurm_resource_policy": "serial-first",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     for folder in ("src", "tests", "skills", "media", "tutorials"):
         root = payload / folder
@@ -83,6 +97,40 @@ def payload_root(tmp_path: Path) -> Path:
     (docs_source / "index.rst").write_text("docs", encoding="utf-8")
 
     return payload
+
+
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Isolate home directory so tests do not modify user-global files.
+
+    Parameters
+    ----------
+    tmp_path : pathlib.Path
+        Temporary directory for the test.
+    monkeypatch : pytest.MonkeyPatch
+        Fixture used to patch environment variables.
+
+    Returns
+    -------
+    pathlib.Path
+        Isolated HOME path.
+    """
+    home = tmp_path / "home"
+    home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("HOME", str(home))
+    return home
+
+
+@pytest.fixture(autouse=True)
+def force_slurm_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force ``sbatch`` availability for deterministic CLI tests.
+
+    Parameters
+    ----------
+    monkeypatch : pytest.MonkeyPatch
+        Fixture used to patch module attributes.
+    """
+    monkeypatch.setattr(mxl_init, "_slurm_available", lambda: True)
 
 
 def test_initialize_workspace_creates_expected_tree(
@@ -103,6 +151,15 @@ def test_initialize_workspace_creates_expected_tree(
     for name in ("src", "tests", "skills", "docs", "media", "tutorials", "README.md"):
         _assert_points_to(workdir / name, payload_root / name)
 
+    _assert_points_to(
+        workdir / "HPC_PROFILE.json",
+        mxl_init._global_hpc_profile_path(),
+    )
+    assert mxl_init._global_hpc_profile_path().is_file()
+    assert mxl_init._global_hpc_profile_path().read_text(encoding="utf-8") == (
+        payload_root / "HPC_PROFILE.json"
+    ).read_text(encoding="utf-8")
+
     _assert_points_to(workdir / "CLAUDE.md", agents)
     _assert_points_to(workdir / "GEMINI.md", agents)
 
@@ -116,6 +173,25 @@ def test_initialize_workspace_is_idempotent(tmp_path: Path, payload_root: Path) 
 
     for name in ("src", "tests", "skills", "docs", "media", "tutorials", "README.md"):
         _assert_points_to(workdir / name, payload_root / name)
+    _assert_points_to(
+        workdir / "HPC_PROFILE.json",
+        mxl_init._global_hpc_profile_path(),
+    )
+
+
+def test_initialize_workspace_skips_hpc_profile_when_no_sbatch(
+    tmp_path: Path,
+    payload_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workdir = tmp_path / "workspace"
+    workdir.mkdir()
+    monkeypatch.setattr(mxl_init, "_slurm_available", lambda: False)
+
+    mxl_init.initialize_workspace(workdir, payload_root, force=False)
+
+    assert not (workdir / "HPC_PROFILE.json").exists()
+    assert not mxl_init._global_hpc_profile_path().exists()
 
 
 def test_initialize_workspace_conflict_and_force(
@@ -148,6 +224,7 @@ def test_mxl_init_main_uses_payload_and_cwd(
     rc = mxl_init.mxl_init_main([])
     assert rc == 0
     _assert_points_to(workdir / "README.md", payload_root / "README.md")
+    _assert_points_to(workdir / "HPC_PROFILE.json", mxl_init._global_hpc_profile_path())
 
 
 def test_clean_workspace_removes_init_artifacts(
@@ -167,6 +244,7 @@ def test_clean_workspace_removes_init_artifacts(
         "media",
         "tutorials",
         "README.md",
+        "HPC_PROFILE.json",
         "AGENTS.md",
         "CLAUDE.md",
         "GEMINI.md",
@@ -187,6 +265,7 @@ def test_clean_workspace_conflict_and_force(tmp_path: Path, payload_root: Path) 
     mxl_clean.clean_workspace(workdir, payload_root, force=True)
     assert not (workdir / "AGENTS.md").exists()
     assert not (workdir / "src").exists()
+    assert mxl_init._global_hpc_profile_path().exists()
 
 
 def test_mxl_clean_main_uses_payload_and_cwd(
@@ -207,6 +286,8 @@ def test_mxl_clean_main_uses_payload_and_cwd(
     assert rc == 0
     assert not (workdir / "src").exists()
     assert not (workdir / "AGENTS.md").exists()
+    assert not (workdir / "HPC_PROFILE.json").exists()
+    assert mxl_init._global_hpc_profile_path().exists()
 
 
 def test_mxl_dispatcher_supports_init_and_clean(
@@ -224,3 +305,79 @@ def test_mxl_dispatcher_supports_init_and_clean(
     assert (workdir / "src").is_symlink()
     assert mxl.main(["clean"]) == 0
     assert not (workdir / "src").exists()
+
+
+def test_set_hpc_profile_and_dispatcher(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workdir = tmp_path / "workspace"
+    workdir.mkdir()
+    src = workdir / "custom_profile.json"
+    src.write_text(
+        json.dumps(
+            {
+                "slurm_default_partition": "debug",
+                "slurm_defaults": "--nodes=2 --ntasks=64 --time=04:00:00",
+                "slurm_resource_policy": "mpi-multinode",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    dest = mxl_hpc.set_hpc_profile(src)
+    assert dest == mxl_init._global_hpc_profile_path()
+    assert dest.exists()
+    assert '"slurm_default_partition": "debug"' in dest.read_text(encoding="utf-8")
+
+    monkeypatch.chdir(workdir)
+    rc = mxl.main(["hpc", "set", str(src)])
+    assert rc == 0
+    assert '"slurm_default_partition": "debug"' in dest.read_text(encoding="utf-8")
+
+
+def test_set_hpc_profile_validation(tmp_path: Path) -> None:
+    bad = tmp_path / "bad_profile.json"
+    bad.write_text(
+        json.dumps(
+            {
+                "slurm_default_partition": "shared",
+                "slurm_defaults": "--nodes=1 --ntasks=1",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        mxl_hpc.set_hpc_profile(bad)
+
+
+def test_init_reuses_existing_global_hpc_profile(
+    tmp_path: Path,
+    payload_root: Path,
+) -> None:
+    custom = tmp_path / "custom_profile.json"
+    custom.write_text(
+        json.dumps(
+            {
+                "slurm_default_partition": "debug",
+                "slurm_defaults": "--nodes=2 --ntasks=16 --time=00:30:00",
+                "slurm_resource_policy": "custom-policy",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    dest = mxl_hpc.set_hpc_profile(custom)
+    before = dest.read_text(encoding="utf-8")
+
+    workdir = tmp_path / "workspace"
+    workdir.mkdir()
+    mxl_init.initialize_workspace(workdir, payload_root, force=False)
+
+    assert dest.read_text(encoding="utf-8") == before
+    _assert_points_to(workdir / "HPC_PROFILE.json", dest)

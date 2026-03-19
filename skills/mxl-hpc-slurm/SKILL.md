@@ -5,6 +5,9 @@ description: This skill should be used when users need to run MaxwellLink in SLU
 
 # SLURM/HPC workflows
 
+## Profile source of truth
+- Load HPC defaults from ``HPC_PROFILE.json`` in the current workspace when present.
+
 ## Choose socket transport
 - Use UNIX sockets only when the EM solver and driver run on the same node.
 - Use TCP sockets when the EM solver and drivers run on different nodes.

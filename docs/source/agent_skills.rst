@@ -9,7 +9,7 @@ Autonomous light-matter simulations with command line interfaces (CLIs)
 
 A very elegant way to use MaxwellLink for autonomous light-matter simulations is to use the CLIs.
 
-After installation, create a clean working directory and run ``mxl-init`` within this directory to set up the **MaxwellLink** environment:
+After installation, create a clean working directory and run ``mxl init`` within this directory to set up the **MaxwellLink** environment:
 
 .. code-block:: bash
 
@@ -18,6 +18,14 @@ After installation, create a clean working directory and run ``mxl-init`` within
    mxl init
 
 Then, the package knowledge base (including the agent skills) will be automatically loaded and the agent will be ready to assist with your simulations. You can then use any of the supported agent providers (e.g., ``codex``, ``claude``, or ``gemini`` CLIs, IDE extensions, or desktop applications) to provide natural language prompts for setting up and running MaxwellLink simulations.
+
+For persistent HPC defaults across projects, install your profile once:
+
+.. code-block:: bash
+
+   mxl hpc set path/to/HPC_PROFILE.json
+
+This writes ``~/.maxwelllink/HPC_PROFILE.json``. On systems where ``sbatch`` is available, ``mxl init`` links local ``HPC_PROFILE.json`` to that persistent profile.
 
 For example, with the ``codex`` CLI, you can run the following command to start chatting with the agent: 
 
@@ -105,4 +113,77 @@ The above video tutorial uses the following input prompt:
 Customizing HPC settings
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Users can modify the HPC settings in the ``skills/mxl-hpc-slurm/resources/hpc_setting.md`` file to match their HPC system requirements. The default configuration is set up for the Anvil HPC system. Users can change parameters accordingly for different HPC systems.
+Use the root-level ``HPC_PROFILE.json`` schema for cluster defaults, and install a persistent user profile with:
+
+.. code-block:: bash
+
+   mxl hpc set path/to/HPC_PROFILE.json
+
+This updates ``~/.maxwelllink/HPC_PROFILE.json`` and is reused in future ``mxl init`` workspaces.
+
+
+
+Vibe simulations
+--------------------------------------
+
+Users can run ``vibe simulations``, i.e., using natural language prompts to set up and run
+**MaxwellLink** simulations, with popular agent providers.
+
+.. note::
+
+   This feature relies on installed ``codex``, ``claude``, or ``gemini`` command line interfaces (CLIs), IDE extensions, or desktop applications. 
+
+Using ``codex`` for an example, install either `VS Code IDE + Codex extension <https://developers.openai.com/codex/ide>`_ or `Codex CLI <https://developers.openai.com/codex/cli/>`_.
+
+Then, open Codex at the root directory of the **MaxwellLink** repository (requiring installing **MaxwellLink** from source) and start to chat:
+
+.. code-block:: text
+
+   In my local machine, run an initially weakly excited two-level system coupled to 2d vacuum using meep fdtd and plot the excited-state population dynamics
+
+It supports ``vibe simulations`` on both local machines and HPC clusters. See :doc:`agent_skills` for more details.
+
+.. note::
+
+   When running ``vibe simulations`` on a local machine (**not on HPC**), the agent typically runs in a sandboxed environment. This may conflict with the MPI environment used by `Meep <https://meep.readthedocs.io/en/latest/>`_, leading to failed simulations.
+   To resolve this issue, consider installing the serial version of `Meep <https://meep.readthedocs.io/en/latest/>`_ (i.e., without MPI support) instead:
+
+   .. code-block:: bash
+
+      conda install -c conda-forge pymeep="*=nompi_*"
+
+Testing and Validation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, ``pytest`` does not run unit tests for ``vibe simulations`` that require agent providers. To run these tests, first install ``codex`` CLI (the other agent providers are not supported in the unit tests), 
+then make sure you have logged in with your OpenAI API key or account credentials. 
+
+Run the unit tests with the ``agent`` marker:
+
+.. code-block:: bash
+
+   # run agent tests, default run on local machines
+   pytest -m agent -v
+   # run agent tests on local machines
+   pytest -m agent --codex-prompts local -v
+   # run agent tests on hpc machines
+   pytest -m agent --codex-prompts hpc -v
+   # run agent tests by skipping the passed tests in the last run
+   pytest -m agent -v --codex-resume
+
+.. note::
+
+   A **passed** simulation here means that the agent was able to generate a working simulation script and get some results. It does **not guarantee** that the simulation results are **physically accurate**.
+
+
+Running a batch of prompts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Users can also use this unit test feature to automatically run a set of Codex prompts (each line corresponds to one independent prompt) stored in a text file:
+
+.. code-block:: bash
+
+   # run agent tests, default run on local machines
+   pytest -m agent -v --codex-prompts-file path/to/your/prompts.txt
+
+The output is stored at ``tests/test_agents/your_prompt_file_name/`` by default.

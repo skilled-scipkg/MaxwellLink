@@ -31,6 +31,7 @@ description: This skill should be used when users ask how to set up, choose, or 
   - ASE: `skills/mxl-driver-ase/SKILL.md`
   - LAMMPS `fix mxl`: `skills/mxl-driver-lammps/SKILL.md`
 - Operations:
+  - CLI workspace management (`mxl init/clean/hpc`): `skills/mxl-cli/SKILL.md`
   - SLURM/HPC: `skills/mxl-hpc-slurm/SKILL.md`
   - Post-processing/export: `skills/mxl-postprocess/SKILL.md`
   - Troubleshooting: `skills/mxl-troubleshoot/SKILL.md`

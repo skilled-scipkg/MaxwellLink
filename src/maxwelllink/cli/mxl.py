@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 
 from .mxl_clean import mxl_clean_main
+from .mxl_hpc import mxl_hpc_main
 from .mxl_init import mxl_init_main
 
 
@@ -47,12 +48,32 @@ def main(argv: list[str] | None = None) -> int:
         help="Remove conflicting managed paths even when they were modified.",
     )
 
+    hpc_parser = subparsers.add_parser(
+        "hpc",
+        help="Manage persistent HPC profile settings.",
+    )
+    hpc_subparsers = hpc_parser.add_subparsers(dest="hpc_command", required=True)
+    hpc_set_parser = hpc_subparsers.add_parser(
+        "set",
+        help="Install a global HPC profile from JSON.",
+    )
+    hpc_set_parser.add_argument(
+        "file",
+        type=str,
+        help="Path to a JSON profile file.",
+    )
+
     args = parser.parse_args(argv)
-    passthrough = ["--force"] if args.force else []
     if args.command == "init":
+        passthrough = ["--force"] if args.force else []
         return mxl_init_main(passthrough)
     if args.command == "clean":
+        passthrough = ["--force"] if args.force else []
         return mxl_clean_main(passthrough)
+    if args.command == "hpc":
+        if args.hpc_command == "set":
+            return mxl_hpc_main(["set", args.file])
+        return mxl_hpc_main([args.hpc_command])
 
     parser.error(f"Unknown command: {args.command}")
     return 2

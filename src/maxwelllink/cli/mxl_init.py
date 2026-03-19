@@ -14,9 +14,11 @@ import sys
 
 _REPO_LINKS = ("src", "tests", "skills", "docs", "media", "tutorials", "README.md")
 _AGENT_LINKS = ("CLAUDE.md", "GEMINI.md")
+_HPC_PROFILE_FILE = "HPC_PROFILE.json"
 _REQUIRED_PAYLOAD_ITEMS = (
     "AGENTS.md",
     "README.md",
+    _HPC_PROFILE_FILE,
     "src",
     "tests",
     "skills",
@@ -62,6 +64,68 @@ def _remove_path(path: Path) -> None:
         shutil.rmtree(path)
         return
     raise FileNotFoundError(path)
+
+
+def _global_hpc_profile_path() -> Path:
+    """Return the user-global HPC profile path.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to ``~/.maxwelllink/HPC_PROFILE.json``.
+    """
+    home = Path(os.path.expanduser("~"))
+    return home / ".maxwelllink" / _HPC_PROFILE_FILE
+
+
+def _default_hpc_profile_path(payload_root: Path) -> Path:
+    """Return the default HPC profile path from the payload.
+
+    Parameters
+    ----------
+    payload_root : pathlib.Path
+        Workspace payload root.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to payload ``HPC_PROFILE.json``.
+    """
+    return payload_root / _HPC_PROFILE_FILE
+
+
+def _ensure_global_hpc_profile(payload_root: Path) -> Path:
+    """Ensure a persistent user-global HPC profile exists.
+
+    Parameters
+    ----------
+    payload_root : pathlib.Path
+        Workspace payload root containing default ``HPC_PROFILE.json``.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to user-global ``HPC_PROFILE.json``.
+    """
+    global_profile = _global_hpc_profile_path()
+    if global_profile.exists():
+        return global_profile
+
+    default_profile = _default_hpc_profile_path(payload_root)
+    global_profile.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(default_profile, global_profile)
+    return global_profile
+
+
+def _slurm_available() -> bool:
+    """Return whether SLURM's ``sbatch`` command is available.
+
+    Returns
+    -------
+    bool
+        ``True`` when ``sbatch`` is found on ``PATH``.
+    """
+    return shutil.which("sbatch") is not None
 
 
 def _is_valid_payload_root(path: Path) -> bool:
@@ -248,6 +312,14 @@ def initialize_workspace(
     for name in _AGENT_LINKS:
         dst = destination / name
         _ensure_symlink(agents_dst, dst, force=force)
+
+    if _slurm_available():
+        global_hpc_profile = _ensure_global_hpc_profile(payload_root)
+        _ensure_symlink(
+            global_hpc_profile,
+            destination / _HPC_PROFILE_FILE,
+            force=force,
+        )
 
 
 def mxl_init_main(argv: list[str] | None = None) -> int:
