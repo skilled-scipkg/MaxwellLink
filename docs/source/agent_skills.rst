@@ -7,62 +7,30 @@ Agent Skills for **MaxwellLink** provide a simple way to get started with this p
 Autonomous light-matter simulations with command line interfaces (CLIs)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A very elegant way to use MaxwellLink for autonomous light-matter simulations is to use the CLIs.
-
-After installation, create a clean working directory and run ``mxl init`` within this directory to set up the **MaxwellLink** environment:
+Inspired by the recently developed `FermiLink agent framework <https://github.com/TaoELi/FermiLink>`, **MaxwellLink** now provides an elegant method for integrating with AI agents. All we need is to type in `mxl init` in a working directory:
 
 .. code-block:: bash
-
+   
    mkdir myproject
-   cd myproject
+   cd myproject/
    mxl init
 
-Then, the package knowledge base (including the agent skills) will be automatically loaded and the agent will be ready to assist with your simulations. You can then use any of the supported agent providers (e.g., ``codex``, ``claude``, or ``gemini`` CLIs, IDE extensions, or desktop applications) to provide natural language prompts for setting up and running MaxwellLink simulations.
+Then we can interact with **any local AI agent** (Claude Code, OpenAI Codex, Gemini CLI, or their desktop apps, VS Code IDE extensions, etc) for autonomous light-matter simulations by simple natural language prompts.
 
-For persistent HPC defaults across projects, install your profile once:
-
-.. code-block:: bash
-
-   mxl hpc set path/to/HPC_PROFILE.json
-
-This writes ``~/.maxwelllink/HPC_PROFILE.json``. On systems where ``sbatch`` is available, ``mxl init`` links local ``HPC_PROFILE.json`` to that persistent profile.
-
-For example, with the ``codex`` CLI, you can run the following command to start chatting with the agent: 
+`mxl init` will set up the package knowledge base (source code tree + agent skills layer) in your working directory for agent reasoning. After the simulation, we can simply clean up the package knowledge base by:
 
 .. code-block:: bash
-
-   codex 
-
-Finally, after the simulations, you can remove the **MaxwellLink** runtime knowledge base by running:
-
-.. code-block:: bash
-
    mxl clean
 
-
-Prerequisites
-~~~~~~~~~~~~~~
-
-This feature requires cloning the MaxwellLink GitHub repository to access the skills folder. First, either on your local machine or on an HPC cluster, clone the repository and install **MaxwellLink**:
+If your machine supports SLURM job management (such as HPCs), run the following command to set up the HPC environment, so the agent can automatically use the correct SLURM environments for large-scale HPC simulations.
 
 .. code-block:: bash
-
-   git clone https://github.com/TaoELi/MaxwellLink.git
-   cd MaxwellLink
-   pip install .
-
-Then, follow :doc:`installation` to install the third-party EM solver (MEEP FDTD) and molecular drivers.
-
-After installation, you can use MaxwellLink's agent skills to run light-matter simulations automatically.
-
-
-.. note::
-
-   An agent provider, such as ``codex``, ``claude``, or ``gemini`` [command line interfaces (CLIs), IDE extensions, or desktop applications] needs to be installed and configured in your machine. 
-
+   mxl hpc
 
 Autonomous light-matter simulations on local machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Below is a demo of talking with commerical AI agents directly in the repository of **MaxwellLink**. The agent will read the source code and documentation, and then create input files and run simulations based on your natural language prompts.
 
 Please watch the following `walkthrough video <https://www.youtube.com/watch?v=ttAvvNByMLg>`_ for an introduction to using MaxwellLink's agent skills with VS Code and the Codex extension:
 
@@ -110,50 +78,9 @@ The above video tutorial uses the following input prompt:
    In this Anvil HPC system, run a slurm job of an initially weakly excited two-level system coupled to 2d vacuum using meep fdtd and then plot the excited-state population dynamics after the slurm job
 
 
-Customizing HPC settings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Use the root-level ``HPC_PROFILE.json`` schema for cluster defaults, and install a persistent user profile with:
-
-.. code-block:: bash
-
-   mxl hpc set path/to/HPC_PROFILE.json
-
-This updates ``~/.maxwelllink/HPC_PROFILE.json`` and is reused in future ``mxl init`` workspaces.
-
-
-
-Vibe simulations
---------------------------------------
-
-Users can run ``vibe simulations``, i.e., using natural language prompts to set up and run
-**MaxwellLink** simulations, with popular agent providers.
-
-.. note::
-
-   This feature relies on installed ``codex``, ``claude``, or ``gemini`` command line interfaces (CLIs), IDE extensions, or desktop applications. 
-
-Using ``codex`` for an example, install either `VS Code IDE + Codex extension <https://developers.openai.com/codex/ide>`_ or `Codex CLI <https://developers.openai.com/codex/cli/>`_.
-
-Then, open Codex at the root directory of the **MaxwellLink** repository (requiring installing **MaxwellLink** from source) and start to chat:
-
-.. code-block:: text
-
-   In my local machine, run an initially weakly excited two-level system coupled to 2d vacuum using meep fdtd and plot the excited-state population dynamics
-
-It supports ``vibe simulations`` on both local machines and HPC clusters. See :doc:`agent_skills` for more details.
-
-.. note::
-
-   When running ``vibe simulations`` on a local machine (**not on HPC**), the agent typically runs in a sandboxed environment. This may conflict with the MPI environment used by `Meep <https://meep.readthedocs.io/en/latest/>`_, leading to failed simulations.
-   To resolve this issue, consider installing the serial version of `Meep <https://meep.readthedocs.io/en/latest/>`_ (i.e., without MPI support) instead:
-
-   .. code-block:: bash
-
-      conda install -c conda-forge pymeep="*=nompi_*"
-
-Testing and Validation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Testing AI agents within **MaxwellLink**
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 By default, ``pytest`` does not run unit tests for ``vibe simulations`` that require agent providers. To run these tests, first install ``codex`` CLI (the other agent providers are not supported in the unit tests), 
 then make sure you have logged in with your OpenAI API key or account credentials. 

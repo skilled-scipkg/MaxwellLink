@@ -338,6 +338,67 @@ def test_set_hpc_profile_and_dispatcher(
     assert '"slurm_default_partition": "debug"' in dest.read_text(encoding="utf-8")
 
 
+def test_mxl_hpc_creates_default_global_profile_when_missing(
+    tmp_path: Path,
+    payload_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workdir = tmp_path / "workspace"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    monkeypatch.setattr(mxl_init, "_resolve_payload_root", lambda: payload_root)
+
+    profile = mxl_init._global_hpc_profile_path()
+    assert not profile.exists()
+
+    rc = mxl.main(["hpc"])
+    assert rc == 0
+    assert profile.exists()
+    assert profile.read_text(encoding="utf-8") == (
+        payload_root / "HPC_PROFILE.json"
+    ).read_text(encoding="utf-8")
+    output = capsys.readouterr().out
+    assert "Created default HPC profile" in output
+    assert "You can adjust ~/.maxwelllink/HPC_PROFILE.json as needed" in output
+
+
+def test_mxl_hpc_keeps_existing_global_profile(
+    tmp_path: Path,
+    payload_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workdir = tmp_path / "workspace"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    monkeypatch.setattr(mxl_init, "_resolve_payload_root", lambda: payload_root)
+
+    profile = mxl_init._global_hpc_profile_path()
+    profile.parent.mkdir(parents=True, exist_ok=True)
+    profile.write_text(
+        json.dumps(
+            {
+                "slurm_default_partition": "custom",
+                "slurm_defaults": "--nodes=1 --ntasks=8 --time=00:10:00",
+                "slurm_resource_policy": "custom",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    before = profile.read_text(encoding="utf-8")
+
+    rc = mxl.main(["hpc"])
+    assert rc == 0
+    assert profile.read_text(encoding="utf-8") == before
+
+    output = capsys.readouterr().out
+    assert "already exists" in output
+    assert "You can adjust ~/.maxwelllink/HPC_PROFILE.json as needed" in output
+
+
 def test_set_hpc_profile_validation(tmp_path: Path) -> None:
     bad = tmp_path / "bad_profile.json"
     bad.write_text(

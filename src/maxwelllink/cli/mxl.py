@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         "hpc",
         help="Manage persistent HPC profile settings.",
     )
-    hpc_subparsers = hpc_parser.add_subparsers(dest="hpc_command", required=True)
+    hpc_subparsers = hpc_parser.add_subparsers(dest="hpc_command", required=False)
     hpc_set_parser = hpc_subparsers.add_parser(
         "set",
         help="Install a global HPC profile from JSON.",
@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "hpc":
         if args.hpc_command == "set":
             return mxl_hpc_main(["set", args.file])
-        return mxl_hpc_main([args.hpc_command])
+        return mxl_hpc_main([])
 
     parser.error(f"Unknown command: {args.command}")
     return 2

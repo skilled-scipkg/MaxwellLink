@@ -7,7 +7,8 @@
 
 """Manage persistent MaxwellLink HPC profile settings.
 
-This module provides the implementation behind ``mxl hpc set``.
+This module provides the implementation behind ``mxl hpc`` and
+``mxl hpc set``.
 """
 
 from __future__ import annotations
@@ -96,6 +97,22 @@ def set_hpc_profile(source_file: Path, destination_file: Path | None = None) -> 
     return destination
 
 
+def ensure_default_hpc_profile() -> tuple[Path, bool]:
+    """Ensure the default global HPC profile exists.
+
+    Returns
+    -------
+    tuple[pathlib.Path, bool]
+        ``(profile_path, created)`` where ``created`` is ``True`` only when
+        a new profile was copied from the MaxwellLink payload.
+    """
+    destination = mxl_init._global_hpc_profile_path()
+    exists_before = destination.exists()
+    payload_root = mxl_init._resolve_payload_root()
+    profile_path = mxl_init._ensure_global_hpc_profile(payload_root)
+    return profile_path, not exists_before
+
+
 def mxl_hpc_main(argv: list[str] | None = None) -> int:
     """Run the ``mxl hpc`` CLI command family.
 
@@ -113,7 +130,7 @@ def mxl_hpc_main(argv: list[str] | None = None) -> int:
         prog="mxl hpc",
         description="Manage persistent HPC profile settings for MaxwellLink.",
     )
-    subparsers = parser.add_subparsers(dest="hpc_command", required=True)
+    subparsers = parser.add_subparsers(dest="hpc_command", required=False)
 
     set_parser = subparsers.add_parser(
         "set",
@@ -126,6 +143,29 @@ def mxl_hpc_main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+
+    if args.hpc_command is None:
+        try:
+            _, created = ensure_default_hpc_profile()
+        except Exception as exc:
+            print(f"[mxl-hpc] ERROR: {exc}", file=sys.stderr)
+            return 2
+
+        if created:
+            print(
+                "[mxl-hpc] Created default HPC profile at "
+                "~/.maxwelllink/HPC_PROFILE.json"
+            )
+        else:
+            print(
+                "[mxl-hpc] ~/.maxwelllink/HPC_PROFILE.json already exists. "
+                "No copy was made."
+            )
+        print(
+            "[mxl-hpc] You can adjust ~/.maxwelllink/HPC_PROFILE.json as needed "
+            "for your HPC environment."
+        )
+        return 0
 
     if args.hpc_command == "set":
         try:

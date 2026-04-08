@@ -36,6 +36,27 @@ pip install maxwelllink
 
 Optional drivers ([MEEP FDTD](https://meep.readthedocs.io/en/latest/), [QuTiP](https://qutip.org/), [Psi4](https://psicode.org/), [ASE](https://wiki.fysik.dtu.dk/ase/), [LAMMPS](https://www.lammps.org/)) can be added by following the instructions in the [documentation](https://taoeli.github.io/MaxwellLink/overview.html).
 
+## Running simulations with AI Agents
+
+Inspired by the recently developed [FermiLink agent framework](https://github.com/TaoELi/FermiLink), **MaxwellLink** now provides an elegant method for integrating with AI agents. All we need is to type in `mxl init` in a working directory:
+```bash
+mkdir myproject
+cd myproject/
+mxl init
+```
+Then we can interact with **any local AI agent** (Claude Code, OpenAI Codex, Gemini CLI, or their desktop apps, VS Code IDE extensions, etc) for autonomous light-matter simulations by simple natural language prompts.
+
+`mxl init` will set up the package knowledge base (source code tree + agent skills layer) in your working directory for agent reasoning. After the simulation, we can simply clean up the package knowledge base by:
+```bash
+mxl clean
+```
+
+If your machine supports SLURM job management (such as HPCs), run the following command to set up the HPC environment, so the agent can automatically use the correct SLURM environments for large-scale HPC simulations.
+```bash
+mxl hpc
+```
+
+
 ## Documentation
 
 Visit the [documentation](https://taoeli.github.io/MaxwellLink/overview.html) for installation details, tutorials, API reference, and guidelines on extending **MaxwellLink**.
