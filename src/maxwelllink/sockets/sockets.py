@@ -23,7 +23,7 @@ This module implements a lightweight socket protocol inspired by i-PI
 """
 
 from __future__ import annotations
-import socket, struct, json, time, threading, os
+import socket, struct, json, time, threading, os, selectors
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple
 import numpy as np
@@ -461,6 +461,95 @@ def _pack_init(sock: socket.socket, init_dict: dict):
     _send_bytes(sock, init_bytes)
 
 
+# --------- precomputed constants for the fast path ---------
+
+_FIELDDATA_HDR = _pad12(FIELDDATA)
+_GETSOURCE_HDR = _pad12(GETSOURCE)
+_EYE3_BYTES = bytes(
+    memoryview(
+        np.ascontiguousarray(np.eye(3, dtype=DT_FLOAT))
+    ).cast("B")
+)
+_NAT1_BYTES = _INT32.pack(1)
+
+
+def _build_step_request(efield_au) -> bytes:
+    """
+    Build a single coalesced request blob that tells a driver to advance one step.
+
+    The blob concatenates a FIELDDATA/POSDATA message carrying the electric
+    field vector followed immediately by a GETSOURCE/GETFORCE request. Sending
+    both headers in one ``sendall`` avoids a round-trip: the driver consumes
+    FIELDDATA, computes, then sees GETSOURCE waiting in its recv buffer and
+    replies with SOURCEREADY without any intervening STATUS handshake.
+
+    Parameters
+    ----------
+    efield_au : array-like, shape (3,)
+        Electric field vector in atomic units.
+
+    Returns
+    -------
+    bytes
+        A single buffer suitable for one ``sock.sendall`` call.
+    """
+
+    vec = np.ascontiguousarray(
+        np.asarray(efield_au, dtype=DT_FLOAT).reshape(3)
+    )
+    vec_bytes = bytes(memoryview(vec).cast("B"))
+    return b"".join(
+        (
+            _FIELDDATA_HDR,
+            _EYE3_BYTES,   # cell (identity; unused by EM drivers)
+            _EYE3_BYTES,   # invcell (identity; unused by EM drivers)
+            _NAT1_BYTES,   # nat = 1
+            vec_bytes,     # positions payload = [Ex, Ey, Ez]
+            _GETSOURCE_HDR,
+        )
+    )
+
+
+# --------- fast-path send/recv layout ---------
+#
+# Send blob (196 bytes; written in place into a reusable bytearray):
+#   [0  :12 ] FIELDDATA header
+#   [12 :84 ] cell (3x3 float64, identity)
+#   [84 :156] invcell (3x3 float64, identity)
+#   [156:160] nat (int32 = 1)
+#   [160:184] field vector (3 x float64)     <-- only this window changes
+#   [184:196] GETSOURCE header
+#
+# Fixed reply (124 bytes; read into a reusable bytearray via recv_into):
+#   [0  :12 ] SOURCEREADY header
+#   [12 :20 ] energy (float64)
+#   [20 :24 ] nat (int32, expected = 1)
+#   [24 :48 ] forces (1 x 3 float64)
+#   [48 :120] virial (3x3 float64)
+#   [120:124] extra_len (int32)
+#   (followed by `extra_len` trailing bytes of JSON/etc., read separately)
+
+_SEND_FIELD_OFFSET = 12 + 72 + 72 + 4  # = 160
+_SEND_TOTAL_LEN = _SEND_FIELD_OFFSET + 24 + 12  # = 196
+_SEND_TEMPLATE = (
+    _FIELDDATA_HDR
+    + _EYE3_BYTES
+    + _EYE3_BYTES
+    + _NAT1_BYTES
+    + b"\x00" * 24
+    + _GETSOURCE_HDR
+)
+assert len(_SEND_TEMPLATE) == _SEND_TOTAL_LEN
+
+_REPLY_FIXED_LEN = 12 + 8 + 4 + 24 + 72 + 4  # = 124
+_REPLY_NAT_OFFSET = 12 + 8                   # = 20
+_REPLY_FORCES_OFFSET = 12 + 8 + 4            # = 24
+_REPLY_EXTRA_LEN_OFFSET = 12 + 8 + 4 + 24 + 72  # = 120
+
+_STRUCT_3D = struct.Struct("<3d")
+_STRUCT_I = struct.Struct("<i")
+
+
 @dataclass
 class _ClientState:
     """
@@ -681,6 +770,19 @@ class SocketHub:
             # assign a molecular id accumulator
             self._molecule_id_counter = 0
 
+            # Persistent selector — clients are registered on bind, not per step.
+            self._selector = selectors.DefaultSelector()
+
+            # Reusable scratch buffers on the hot path:
+            #   _scratch_send: the 196-byte FIELDDATA+GETSOURCE blob, with
+            #     the 24-byte field window at _SEND_FIELD_OFFSET patched in
+            #     place each step via struct.pack_into (no per-step allocation).
+            #   _scratch_recv: the 124-byte fixed SOURCEREADY reply, filled
+            #     by a single recv_into loop and parsed via struct.
+            self._scratch_send = bytearray(_SEND_TEMPLATE)
+            self._scratch_recv = bytearray(_REPLY_FIXED_LEN)
+            self._scratch_recv_mv = memoryview(self._scratch_recv)
+
         # molecule_id -> _ClientState (locked client)
         self.bound: Dict[int, _ClientState] = {}
 
@@ -736,43 +838,184 @@ class SocketHub:
         _pack_init(st.sock, init_payload)
         st.initialized = True
 
-    def _dispatch_field(self, st: _ClientState, efield_au: np.ndarray, meta: dict):
+    def _register_sock(self, sock: socket.socket, molid: int) -> None:
         """
-        Dispatch an EM field vector to a client via FIELDDATA/POSDATA.
+        Register a client's socket with the persistent selector.
+
+        Called once at bind time. If the socket is already registered (for
+        example after a rebind/reconnect), we replace the old registration so
+        future ``select`` events carry the up-to-date molecule id.
+
+        Parameters
+        ----------
+        sock : socket.socket
+            The client socket.
+        molid : int
+            Molecule id to attach as the selector ``data`` payload.
+        """
+
+        try:
+            self._selector.register(sock, selectors.EVENT_READ, data=int(molid))
+        except (KeyError, ValueError):
+            # Already registered under this fd — swap the data payload.
+            try:
+                self._selector.unregister(sock)
+                self._selector.register(
+                    sock, selectors.EVENT_READ, data=int(molid)
+                )
+            except (KeyError, ValueError, OSError):
+                pass
+        except OSError:
+            pass
+
+    def _unregister_sock(self, sock: socket.socket) -> None:
+        """
+        Unregister a client socket from the persistent selector.
+
+        Safe to call with a socket that was never registered or has already
+        been closed; errors are swallowed so disconnect paths stay simple.
+
+        Parameters
+        ----------
+        sock : socket.socket
+            The client socket.
+        """
+
+        try:
+            self._selector.unregister(sock)
+        except (KeyError, ValueError, OSError):
+            pass
+
+    def _mark_dead(
+        self, st: _ClientState, molid: Optional[int], reason: str
+    ) -> None:
+        """
+        Mark a client dead, unregister it from the selector, and clear binding.
+
+        This centralizes the bookkeeping that used to be duplicated across
+        every ``except`` arm of the old STATUS-based sweep. It is safe to call
+        from any phase and takes ``self._lock`` only briefly for the ``bound``
+        mutation so blocking I/O never runs while the lock is held.
+
+        Parameters
+        ----------
+        st : _ClientState
+            The client whose socket failed.
+        molid : int or None
+            The molecule id the client was bound to (or ``None`` if unknown).
+        reason : str
+            Short tag used in the disconnect log line (e.g. ``"send"``, ``"recv"``).
+        """
+
+        st.alive = False
+        self._unregister_sock(st.sock)
+        if molid is None:
+            molid = st.molecule_id
+        if molid is not None and molid >= 0:
+            with self._lock:
+                if self.bound.get(molid) is st:
+                    self._log(
+                        f"DISCONNECTED ({reason}): mol {molid} from {st.address}"
+                    )
+                    self.bound[molid] = None
+
+    def _dispatch_field(
+        self, st: _ClientState, blob: "bytes | bytearray | memoryview", meta: dict
+    ) -> None:
+        """
+        Send a pre-packed FIELDDATA+GETSOURCE blob to one client in a single call.
+
+        This is the hot-path send used by :meth:`step_barrier`. The caller is
+        responsible for packing the field vector into the shared scratch buffer
+        (via ``struct.pack_into``) so a whole group of clients sharing the same
+        field can reuse the same blob.
 
         Parameters
         ----------
         st : _ClientState
             Target client state.
-        efield_au : numpy.ndarray
-            Electric field vector ``(3,)`` in a.u.
+        blob : bytes-like
+            Pre-packed 196-byte request buffer.
         meta : dict
-            Optional metadata to attach to this send.
+            Optional metadata to attach to this send (stored in ``st.extras``).
 
         Raises
         ------
         _SocketClosed or OSError
-            If the client disconnects during send.
+            If the client disconnects during send. The caller is responsible
+            for calling :meth:`_mark_dead`.
         """
 
-        try:
-            _send_msg(st.sock, FIELDDATA)
-            I = np.eye(3, dtype=DT_FLOAT)
-            _send_array(st.sock, I.T, DT_FLOAT)
-            _send_array(st.sock, I.T, DT_FLOAT)
-            _send_int(st.sock, 1)
-            vec = np.asarray(efield_au, dtype=DT_FLOAT).reshape(1, 3)
-            _send_array(st.sock, vec, DT_FLOAT)
-            st.pending_send = True
-            st.extras.update(meta or {})
-        except (socket.timeout, _SocketClosed, OSError):
-            st.alive = False
-            if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
-                self._log(
-                    f"DISCONNECTED (send): mol {st.molecule_id} from {st.address}"
-                )
-                self.bound[st.molecule_id] = None
-            raise
+        st.sock.sendall(blob)
+        st.pending_send = True
+        if meta:
+            st.extras.update(meta)
+
+    def _read_source_ready(self, st: _ClientState) -> Tuple[np.ndarray, bytes]:
+        """
+        Read a SOURCEREADY/FORCEREADY reply into the shared scratch buffer.
+
+        The reply's fixed 124-byte prefix (header, energy, nat, forces, virial,
+        extra_len) is drained in a single ``recv_into`` loop into
+        ``self._scratch_recv`` and parsed with ``struct.unpack_from`` — no
+        numpy temporaries, no per-field ``_recv_array`` calls. Only a single
+        3-element ``np.array`` is allocated at the end to carry the amplitude
+        back to the caller.
+
+        The shared scratch buffer is safe because :meth:`step_barrier` drains
+        selector events serially in the main thread — only one reply is being
+        parsed at any given time.
+
+        Parameters
+        ----------
+        st : _ClientState
+            Client whose reply is being drained. Assumes the hub has already
+            sent the combined FIELDDATA+GETSOURCE request and the kernel
+            reported the socket readable.
+
+        Returns
+        -------
+        tuple
+            ``(amp_vec3, extra_bytes)`` where ``amp_vec3`` is a ``(3,)``
+            ``np.ndarray`` and ``extra_bytes`` is the trailing variable blob.
+
+        Raises
+        ------
+        _SocketClosed or OSError
+            If the peer disconnects, the header is not SOURCEREADY, or the
+            reported ``nat`` is not the EM-protocol-expected value of 1.
+        """
+
+        sock = st.sock
+        mv = self._scratch_recv_mv
+        n = 0
+        while n < _REPLY_FIXED_LEN:
+            r = sock.recv_into(mv[n:], _REPLY_FIXED_LEN - n)
+            if r == 0:
+                raise _SocketClosed("Peer closed")
+            n += r
+
+        # Header must be SOURCEREADY (the 12-byte ASCII tag, space-padded).
+        if bytes(mv[:HEADER_LEN]).rstrip() != SOURCEREADY:
+            raise _SocketClosed(
+                f"Expected {SOURCEREADY!r}, got {bytes(mv[:HEADER_LEN]).rstrip()!r}"
+            )
+
+        # EM protocol contract: drivers always send nat=1.
+        nat = _STRUCT_I.unpack_from(mv, _REPLY_NAT_OFFSET)[0]
+        if nat != 1:
+            raise _SocketClosed(
+                f"EM fast-path expected nat=1, got nat={nat}"
+            )
+
+        fx, fy, fz = _STRUCT_3D.unpack_from(mv, _REPLY_FORCES_OFFSET)
+        extra_len = _STRUCT_I.unpack_from(mv, _REPLY_EXTRA_LEN_OFFSET)[0]
+        extra = _recvall(sock, extra_len) if extra_len > 0 else b""
+
+        amp = np.array((fx, fy, fz), dtype=float)
+        st.last_amp = amp
+        st.pending_send = False
+        return amp, extra
 
     def _query_result(self, st: _ClientState) -> Tuple[np.ndarray, bytes]:
         """
@@ -814,6 +1057,52 @@ class SocketHub:
                 self.bound[st.molecule_id] = None
             raise
 
+    def _progress_binds_locked(self, init_payloads: Dict[int, dict]) -> None:
+        """
+        Drive INIT handshakes for any fresh (unbound) clients.
+
+        Walks ``self.clients`` for entries whose ``molecule_id < 0`` (the temp
+        state created by the accept loop) and, for each one, picks an expected
+        molecule ID from ``init_payloads`` that is not yet bound and sends
+        ``INIT`` directly. This replaces the old STATUS/NEEDINIT round-trip: both
+        the Python and LAMMPS drivers accept INIT unconditionally as the first
+        message from the hub, so the extra poll is unnecessary.
+
+        Parameters
+        ----------
+        init_payloads : dict[int, dict]
+            Mapping of molecule ID to the INIT payload to send for that ID.
+
+        Notes
+        -----
+        This method assumes ``self._lock`` is held by the caller.
+        """
+
+        pending_ids = [
+            int(mid)
+            for mid in init_payloads.keys()
+            if self.bound.get(int(mid)) is None
+        ]
+        if not pending_ids:
+            return
+        fresh_clients = [
+            (k, st)
+            for k, st in list(self.clients.items())
+            if st is not None and st.alive and st.molecule_id < 0
+        ]
+        for st_key, st in fresh_clients:
+            if not pending_ids:
+                break
+            chosen = pending_ids.pop(0)
+            payload = init_payloads.get(chosen) or {"molecule_id": chosen}
+            payload = {**payload, "molecule_id": chosen}
+            try:
+                self._bind_client_locked(st, int(chosen), payload, st_key)
+            except (socket.timeout, _SocketClosed, OSError):
+                st.alive = False
+                # put the id back so another fresh client can claim it
+                pending_ids.insert(0, chosen)
+
     def _bind_client_locked(
         self, st: _ClientState, molid: int, init_payload: dict, st_key
     ):
@@ -848,6 +1137,9 @@ class SocketHub:
                     del self.clients[st_key]
                 except KeyError:
                     pass
+            # Register with the persistent selector so Phase B of
+            # step_barrier doesn't have to re-register on every call.
+            self._register_sock(st.sock, molid)
             address = st.address
             self._log(f"CONNECTED: mol {molid} <- {address}")
             # NEW: this molid is part of a frozen barrier -> force re-dispatch
@@ -889,7 +1181,6 @@ class SocketHub:
 
         if self._inflight and (molid in self._inflight["wants"]):
             self._inflight["sent"][molid] = False
-            self._inflight["ready"][molid] = False
 
     def _find_free_molecule_id(self) -> int:
         """
@@ -979,233 +1270,132 @@ class SocketHub:
         if self.paused:
             return {}
 
-        deadline = time.time() + (timeout or self.timeout)
+        deadline = time.time() + (timeout if timeout is not None else self.timeout)
         results: Dict[int, dict] = {}
 
         # If a barrier is already in flight, ignore new 'requests' and reuse the frozen one.
         if self._inflight is None:
-            wants = set(requests.keys())
+            wants = set(int(k) for k in requests.keys())
             self._inflight = {
                 "wants": wants,
                 "efields": {
-                    mid: np.asarray(requests[mid]["efield_au"], dtype=DT_FLOAT).copy()
+                    int(mid): np.asarray(
+                        requests[mid]["efield_au"], dtype=DT_FLOAT
+                    ).copy()
                     for mid in wants
                 },
-                "meta": {mid: requests[mid].get("meta", {}) for mid in wants},
-                "sent": {mid: False for mid in wants},
-                "ready": {mid: False for mid in wants},
+                "meta": {int(mid): requests[mid].get("meta", {}) for mid in wants},
+                "sent": {int(mid): False for mid in wants},
             }
-        else:
-            # Reuse the frozen barrier even if the caller passed different fields
-            wants = set(self._inflight["wants"])
-
-        ready = self._inflight["ready"]
+        wants = set(self._inflight["wants"])
 
         # --- hard gate: do not dispatch fields until everyone is bound ---
-        ids = set(int(k) for k in requests.keys())
         with self._lock:
-            if not self.all_bound(ids, require_init=True):
-                # Try to progress INIT quickly, but DO NOT send FIELDDATA yet
-                for st_key, st in list(self.clients.items()):
-                    if not st or not st.alive:
-                        continue
-                    try:
-                        _send_msg(st.sock, STATUS)
-                        reply = _recv_msg(st.sock)
-                    except (socket.timeout, _SocketClosed, OSError):
-                        st.alive = False
-                        if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
-                            self._log(
-                                f"DISCONNECTED: mol {st.molecule_id} from {st.address}"
-                            )
-                            self.bound[st.molecule_id] = None
-                            self._pause()
-                            # NEW: make the frozen barrier re-send the old field to this molid
-                            self._reset_inflight_for(st.molecule_id)
-                        continue
-                    if reply == NEEDINIT:
-                        for mid in ids:
-                            if self.bound.get(mid) is None:
-                                init_payload = requests.get(mid, {}).get(
-                                    "init", {"molecule_id": mid}
-                                )
-                                self._bind_client_locked(
-                                    st, int(mid), init_payload, st_key
-                                )
-                                break
-                return {}  # nothing dispatched; drivers remain idle
-
-        # --- normal step_barrier continues below ---
-        aborted = False
-        with self._lock:
-            # 1. poll and init/dispatch
-            for st_key, st in list(self.clients.items()):
-                try:
-                    _send_msg(st.sock, STATUS)
-                    reply = _recv_msg(st.sock)
-                except (socket.timeout, _SocketClosed, OSError):
-                    st.alive = False
-                    if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
-                        self._log(
-                            f"DISCONNECTED: mol {st.molecule_id} from {st.address}"
-                        )
-                        self.bound[st.molecule_id] = None
-                        self._pause()
-                        # NEW: make the frozen barrier re-send the old field to this molid
-                        self._reset_inflight_for(st.molecule_id)
-                    aborted = True
-                    continue
-                if reply == NEEDINIT:
-                    # Bind this client to the first UNBOUND molecule id present in requests
-                    # Preserve the requests' order (Python dicts keep insertion order).
-                    chosen = None
-                    for mid in requests.keys():
-                        if self.bound.get(mid) is None:
-                            chosen = mid
-                            break
-                    # Fallback: allow a rebind if this client was previously bound and crashed/reconnected
-                    if (
-                        chosen is None
-                        and st.molecule_id >= 0
-                        and self.bound.get(st.molecule_id) is None
-                    ):
-                        chosen = st.molecule_id
-                    if chosen is None:
-                        # Nothing to serve right now; keep the client idle
-                        continue
-                    init_payload = requests.get(chosen, {}).get(
-                        "init", {"molecule_id": chosen}
+            if not self.all_bound(wants, require_init=True):
+                init_payloads = {
+                    int(mid): (
+                        requests.get(mid, {}).get("init")
+                        or {"molecule_id": int(mid)}
                     )
-                    self._bind_client_locked(st, int(chosen), init_payload, st_key)
+                    for mid in wants
+                }
+                self._progress_binds_locked(init_payloads)
+                return {}
 
-                elif reply == READY:
-                    molid = st.molecule_id
-                    if (
-                        molid in self._inflight["wants"]
-                        and not st.pending_send
-                        and not self._inflight["sent"][molid]
-                    ):
-                        evec = self._inflight["efields"][molid]
-                        meta = self._inflight["meta"][molid]
-                        try:
-                            self._dispatch_field(st, evec, meta)
-                            self._inflight["sent"][molid] = True
-                        except Exception:
-                            aborted = True
-                            break
-
-                elif reply == HAVEDATA:
-                    if st.molecule_id in ready:
-                        ready[st.molecule_id] = True
+            # Snapshot the (mid, st, efield, meta) tuples we will send to.
+            # Everything below runs without self._lock held, so the accept
+            # thread and background bookkeeping cannot be starved by blocking
+            # send/recv syscalls.
+            snapshot = []
+            for mid in wants:
+                if self._inflight["sent"].get(mid, False):
                     continue
+                st = self.bound.get(mid)
+                if st is None or not st.alive:
+                    self._pause()
+                    self._reset_inflight_for(mid)
+                    return {}
+                snapshot.append(
+                    (
+                        int(mid),
+                        st,
+                        self._inflight["efields"][mid],
+                        self._inflight["meta"][mid],
+                    )
+                )
 
-            # 2. second pass: wait for all pending molecules to finish (barrier)
-            wants = set(self._inflight["wants"])
+        # --- Phase A: pipeline dispatch (FIELDDATA + GETSOURCE in one send) ---
+        #
+        # We reuse a single 196-byte scratch bytearray for every send; only
+        # the 24-byte field window at offset _SEND_FIELD_OFFSET is rewritten
+        # via struct.pack_into. Clients sharing an identical field vector
+        # (common in Meep runs that dedup by polarization fingerprint) are
+        # grouped so we pack once per unique field instead of once per client.
+        scratch = self._scratch_send
+        groups: Dict[Tuple[float, float, float], list] = {}
+        for mid, st, efield, meta in snapshot:
+            ef = np.asarray(efield, dtype=DT_FLOAT).reshape(3)
+            key = (float(ef[0]), float(ef[1]), float(ef[2]))
+            groups.setdefault(key, []).append((mid, st, meta))
 
-        if aborted:
-            # abort this barrier; caller will enter the pause path
+        for fkey, members in groups.items():
+            _STRUCT_3D.pack_into(scratch, _SEND_FIELD_OFFSET, fkey[0], fkey[1], fkey[2])
+            for mid, st, meta in members:
+                try:
+                    self._dispatch_field(st, scratch, meta)
+                    self._inflight["sent"][mid] = True
+                except (socket.timeout, _SocketClosed, OSError):
+                    self._mark_dead(st, mid, reason="send")
+                    self._pause()
+                    self._reset_inflight_for(mid)
+                    return {}
+
+        # --- Phase B: collect SOURCEREADY replies via the persistent selector ---
+        #
+        # The selector has every bound client registered (from _bind_client_locked),
+        # so we do NOT register per call. Phase B just waits for readable events
+        # on the sockets belonging to mids in `pending_mids`, parses their
+        # replies via the shared scratch recv buffer, and discards them.
+        pending_mids: set[int] = set(int(mid) for mid in wants)
+        sel = self._selector
+        while pending_mids:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            # Cap the wait so we periodically re-check the deadline.
+            events = sel.select(timeout=min(remaining, 1.0))
+            if not events:
+                continue
+            for key, _mask in events:
+                mid = key.data
+                if mid not in pending_mids:
+                    # Spurious wake (stale registration or unrelated driver);
+                    # leave it for later and keep draining our own mids.
+                    continue
+                with self._lock:
+                    st = self.bound.get(mid)
+                if st is None or not st.alive:
+                    pending_mids.discard(mid)
+                    self._pause()
+                    self._reset_inflight_for(mid)
+                    return {}
+                try:
+                    amp, extra = self._read_source_ready(st)
+                    results[mid] = {"amp": amp, "extra": extra}
+                    pending_mids.discard(mid)
+                except (socket.timeout, _SocketClosed, OSError):
+                    self._mark_dead(st, mid, reason="recv")
+                    pending_mids.discard(mid)
+                    self._pause()
+                    self._reset_inflight_for(mid)
+                    return {}
+
+        if pending_mids:
+            # Timed out waiting for replies; keep the frozen barrier for retry.
             return {}
-
-        while time.time() < deadline and (wants - set(results.keys())):
-            time.sleep(self.latency)
-
-            with self._lock:
-                # Always sweep over ALL clients, not just molecule-ids in 'wants'
-                for st_key, st in list(self.clients.items()):
-                    if not st or not st.alive:
-                        continue
-                    try:
-                        _send_msg(st.sock, STATUS)
-                        reply = _recv_msg(st.sock)
-                    except (socket.timeout, _SocketClosed, OSError):
-                        st.alive = False
-                        if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
-                            self._log(
-                                f"DISCONNECTED: mol {st.molecule_id} from {st.address}"
-                            )
-                            self.bound[st.molecule_id] = None
-                            self._pause()
-                            # NEW: make the frozen barrier re-send the old field to this molid
-                            self._reset_inflight_for(st.molecule_id)
-                        continue
-
-                    if reply == NEEDINIT:
-                        # Bind this client to the first UNBOUND molecule id present in requests
-                        # Preserve the requests' order (Python dicts keep insertion order).
-                        chosen = None
-                        for mid in requests.keys():
-                            if self.bound.get(mid) is None:
-                                chosen = mid
-                                break
-                        # Fallback: allow a rebind if this client was previously bound and crashed/reconnected
-                        if (
-                            chosen is None
-                            and st.molecule_id >= 0
-                            and self.bound.get(st.molecule_id) is None
-                        ):
-                            chosen = st.molecule_id
-                        if chosen is None:
-                            # Nothing to serve right now; keep the client idle
-                            continue
-                        init_payload = requests.get(chosen, {}).get(
-                            "init", {"molecule_id": chosen}
-                        )
-                        self._bind_client_locked(st, int(chosen), init_payload, st_key)
-                        continue  # next client
-
-                    if reply == READY:
-                        molid = st.molecule_id
-                        if (
-                            molid in self._inflight["wants"]
-                            and not st.pending_send
-                            and not self._inflight["sent"][molid]
-                        ):
-                            evec = self._inflight["efields"][molid]
-                            meta = self._inflight["meta"][molid]
-                            self._dispatch_field(st, evec, meta)
-                        continue
-
-                    if reply == HAVEDATA:
-                        if st.molecule_id in ready:
-                            ready[st.molecule_id] = True
-                        continue
-
-                    # Some clients may erroneously send STATUS; ignore gracefully
-                    if reply == STATUS:
-                        continue
-
-                # exit condition: filled everything we wanted
-                if all(ready.get(mid, False) for mid in wants):
-                    break
-
-        # Abort if not everyone is ready (e.g., disconnect); keep the frozen barrier.
-        if not all(
-            self._inflight["ready"].get(mid, False) for mid in self._inflight["wants"]
-        ):
-            return {}
-
-        # Phase C: commit all together (send GETSOURCE to everyone now)
-        for mid in self._inflight["wants"]:
-            st = self.clients.get(mid)
-            if not st or not st.alive:
-                return {}  # keep barrier for retry
-            try:
-                amp, extra = self._query_result(st)
-                results[mid] = {"amp": amp, "extra": extra}
-            except (socket.timeout, _SocketClosed, OSError):
-                return {}  # keep barrier for retry
 
         # SUCCESS — clear the frozen barrier
         self._inflight = None
-
-        # Fallback: any missing results -> use last known amplitude (if any),
-        # We turn off this fallback for now to avoid silent errors.
-        if False:
-            with self._lock:
-                for mid in wants - set(results.keys()):
-                    st = self.clients.get(mid)
-                    if st and st.last_amp is not None:
-                        results[mid] = {"amp": st.last_amp.copy(), "extra": b""}
         return results
 
     def all_bound(self, molecule_ids, require_init=True):
@@ -1255,54 +1445,23 @@ class SocketHub:
 
         wanted = {int(k) for k in init_payloads.keys()}
         deadline = time.time() + (timeout if timeout is not None else self.timeout)
+        payloads = {int(mid): init_payloads[mid] for mid in init_payloads.keys()}
 
         while True:
             if self.all_bound(wanted, require_init=require_init):
                 self._resume()
                 return True
 
-            # Progress the INIT handshakes without dispatching any field steps
+            # Push INIT to any fresh unbound clients. The accept loop has already
+            # enqueued them; we no longer use STATUS to probe for NEEDINIT.
             with self._lock:
-                # Only touch clients for molecule-ids that are still unbound
                 pending_ids = {mid for mid in wanted if self.bound.get(mid) is None}
-                if not pending_ids:
-                    # (shouldn't happen because of the all_bound check, but be safe)
-                    time.sleep(self.latency)
-                    continue
-
-                for st_key, st in list(self.clients.items()):
-                    if not st or not st.alive:
-                        continue
-                    # Only ping clients that are currently unbound (either brand-new or reconnecting)
-                    if st.molecule_id >= 0 and st.molecule_id not in pending_ids:
-                        continue
-                    try:
-                        _send_msg(st.sock, STATUS)
-                        reply = _recv_msg(st.sock)
-                    except (socket.timeout, _SocketClosed, OSError):
-                        st.alive = False
-                        # free a binding if this was a re-connect case
-                        if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
-                            self._log(
-                                f"DISCONNECTED: mol {st.molecule_id} from {st.address}"
-                            )
-                            self.bound[st.molecule_id] = None
-                            self._pause()
-                            # NEW: make the frozen barrier re-send the old field to this molid
-                            self._reset_inflight_for(st.molecule_id)
-                        continue
-
-                    if reply == NEEDINIT:
-                        # choose an unclaimed id from 'wanted'
-                        chosen = None
-                        for mid in pending_ids:
-                            if self.bound.get(mid) is None:
-                                chosen = mid
-                                break
-                        if chosen is not None:
-                            self._bind_client_locked(
-                                st, int(chosen), init_payloads[int(chosen)], st_key
-                            )
+                if pending_ids:
+                    sub_payloads = {
+                        mid: payloads.get(mid, {"molecule_id": mid})
+                        for mid in pending_ids
+                    }
+                    self._progress_binds_locked(sub_payloads)
 
             if timeout is not None and time.time() > deadline:
                 return False
@@ -1328,6 +1487,7 @@ class SocketHub:
                     _send_msg(st.sock, STOP)
                 except Exception:
                     st.alive = False
+                    self._unregister_sock(st.sock)
                     if st.molecule_id >= 0 and self.bound.get(st.molecule_id) is st:
                         self._log(
                             f"DISCONNECTED: mol {st.molecule_id} from {st.address}"
@@ -1349,6 +1509,7 @@ class SocketHub:
                         if msg == BYE:
                             # Clean close on our side
                             st.alive = False
+                            self._unregister_sock(st.sock)
                             if (
                                 st.molecule_id >= 0
                                 and self.bound.get(st.molecule_id) is st
@@ -1389,10 +1550,15 @@ class SocketHub:
         finally:
             with self._lock:
                 for st in list(self.clients.values()):
+                    self._unregister_sock(st.sock)
                     try:
                         st.sock.close()
                     except Exception:
                         pass
+            try:
+                self._selector.close()
+            except Exception:
+                pass
 
         # if unix socket, remove the path
         if self.unixsocket_path and os.path.exists(self.unixsocket_path):
