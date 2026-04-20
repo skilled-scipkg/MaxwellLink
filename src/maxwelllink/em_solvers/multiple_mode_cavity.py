@@ -466,10 +466,10 @@ class MultipleModeSimulation(DummyEMSimulation):
         drive_val = self._evaluate_drive(time)
         mu_dot_f = np.einsum("ijk, jk->ik", self.ftilde_k, mu)
         acceleration = (
-            drive_val - np.einsum('i,ij->ij', self.varepsilon_k, mu_dot_f) - np.einsum("i,ij->ij", self.omega_k**2, qc)
+            drive_val - np.einsum('i,ik->ik', self.varepsilon_k, mu_dot_f) - np.einsum("i,ik->ik", self.omega_k**2, qc)
         )
         # print("In Function, Cavity acceleration:", acceleration)
-        acceleration = np.einsum("ij, j->ij", acceleration, self.axis)
+        acceleration = np.einsum("ik, k->ik", acceleration, self.axis)
         return acceleration
 
     def _calc_effective_efield(self, qc: np.ndarray, mu: np.ndarray) -> np.ndarray:
@@ -493,10 +493,9 @@ class MultipleModeSimulation(DummyEMSimulation):
         # add dipole self-energy term for the electric field if enabled
         if self.include_dse:
             mu_dot_f = np.einsum("ijk, jk->ik", self.ftilde_k, mu)
-            varepsilon_dot_qc -= np.einsum("i,ij,i->ij", self.varepsilon_k**2, mu_dot_f, 1.0 / (self.omega_k**2), optimize=True)
+            varepsilon_dot_qc -= np.einsum("i,ik,i->ik", self.varepsilon_k**2, mu_dot_f, 1.0 / (self.omega_k**2), optimize=True)
         efield_vec = np.einsum("ijk,ik,k->jk", self.ftilde_k, varepsilon_dot_qc, self.axis, optimize=True)
         assert efield_vec.shape == mu.shape
-        # print("In Function, Effective E-field vector:", efield_vec)
         return efield_vec
 
     def _calc_energy(self, pc, qc, mu) -> float:
