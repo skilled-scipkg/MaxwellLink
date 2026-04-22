@@ -97,8 +97,7 @@ class MoleculeMultiModeWrapper(MoleculeDummyWrapper):
         if extra:
             self.additional_data_history.append(extra)
 
-
-class MultiModeSimulation(DummyEMSimulation):
+class FabryPerotCavities():
     r"""
     Damped harmonic oscillators coupled to MaxwellLink molecules.
 
@@ -127,22 +126,10 @@ class MultiModeSimulation(DummyEMSimulation):
 
     def __init__(
         self,
-        dt_au: float,
         frequency_au: float,
         damping_au: float,
-        molecules: Optional[Iterable[Molecule]] = None,
-        drive: Optional[Union[float, Callable[[float], float]]] = None,
         coupling_strength: float = 1.0,
         coupling_axis: str = "xy",
-        hub: Optional[SocketHub] = None,
-        qc_initial: Optional[list] = None,
-        pc_initial: Optional[list] = None,
-        mu_initial: Optional[list] = None,
-        dmudt_initial: Optional[list] = None,
-        include_dse: bool = True,
-        molecule_half_step: bool = False,
-        shift_dipole_baseline: bool = False,
-        gauge="dipole",
         x_grid_1d: Optional[list] = None,
         y_grid_1d: Optional[list] = None,
         delta_omega_x_au: float = 0.0,
@@ -157,39 +144,14 @@ class MultiModeSimulation(DummyEMSimulation):
         r"""
         Parameters
         ----------
-        dt_au : float
-            Simulation time step in atomic units.
         frequency_au : float
             Cavity angular frequency :math:`\omega_{\rm c}` (a.u.).
         damping_au : float
             Damping constant :math:`\kappa` (a.u.).
-        molecules : iterable of Molecule, optional
-            Molecules coupled to the cavity.
-        drive : float or callable, optional
-            Constant drive term or function ``drive(t_au)``.
         coupling_strength : float, default: 1.0
             Prefactor :math:`\varepsilon`.
         coupling_axis : str, default: "xy"
             Component(s) of the molecular dipole used for coupling.
-        hub : :class:`~maxwelllink.sockets.sockets.SocketHub`, optional
-            Socket hub shared by all socket-mode molecules.
-        qc_initial : list, default: [0.0, 0.0, 0.0]
-            Initial cavity field coordinate (a.u.).
-        pc_initial : list, default: [0.0, 0.0, 0.0]
-            Initial cavity field momentum (a.u.).
-        mu_initial : list, default: [0.0, 0.0, 0.0]
-            Initial total molecular dipole vector (a.u.).
-        dmudt_initial : list, default: [0.0, 0.0, 0.0]
-            Initial time derivative of the total molecular dipole vector (a.u.).
-        include_dse : bool, default: True
-            Include dipole self-energy term in the simulation.
-        molecule_half_step : bool, default: True
-            Whether to further evaluate molecular info for another half time step.
-        shift_dipole_baseline : bool, default: False
-            Whether to shift all dipole values using the initial dipole value, so initial dipole value is changed to zero.
-            Setting this to True can facilitate simulating strong coupling systems with large permanent dipoles.
-        gauge : str, default: "dipole"
-            Gauge choice for light-matter coupling: "dipole".
         x_grid_1d : list, optional
             1D grid points for molecular bath coordinates along x-axis, in units of cavity length Lx. If None, defaults to [0.5] (single point at the center).
         y_grid_1d : list, optional
@@ -211,21 +173,11 @@ class MultiModeSimulation(DummyEMSimulation):
         molecule_pulse_axis : str, default: "y"
             pulse axis for the molecule pulse.
         """
-
-        super().__init__(hub=hub, molecules=molecules)
-
-        self.dt = float(dt_au)
-        if self.dt <= 0.0:
-            raise ValueError("dt_au must be positive.")
         self.frequency = float(frequency_au)
         self.damping = float(damping_au)
         self.coupling_strength = float(coupling_strength)
+
         self.axis = np.array([False, False, False], dtype=bool)
-
-        self.gauge = gauge.lower()
-        if self.gauge not in ["dipole"]:
-            raise ValueError("gauge must be 'dipole'.")
-
         if "x" in coupling_axis.lower():
             self.axis[0] = True
         if "y" in coupling_axis.lower():
@@ -252,44 +204,6 @@ class MultiModeSimulation(DummyEMSimulation):
             raise ValueError(
                 "At least one pulse axis (x, y, or z) must be specified."
             )
-        
-        self.drive = drive if drive is not None else (lambda _: 0.0)
-        if isinstance(self.drive, (int, float)):
-            const = float(self.drive)
-            self.drive = lambda _t, c=const: c
-        self.molecule_pulse = molecule_pulse_drive if molecule_pulse_drive is not None else (lambda _: 0.0)
-        if isinstance(self.molecule_pulse, (int, float)):
-            const = float(self.molecule_pulse)
-            self.molecule_pulse = lambda _t, c=const: c
-
-        molecules = list(molecules or [])
-        self.wrappers: List[MoleculeMultiModeWrapper] = [
-            MoleculeMultiModeWrapper(molecule=m, dt_au=self.dt) for m in molecules
-        ]
-        self.socket_wrappers = [w for w in self.wrappers if w.mode == "socket"]
-        self.non_socket_wrappers = [w for w in self.wrappers if w.mode == "non-socket"]
-
-        if self.socket_wrappers:
-            hubs = {w.hub for w in self.socket_wrappers if w.hub is not None}
-            if hub is not None:
-                hubs.add(hub)
-            if len(hubs) > 1:
-                raise ValueError(
-                    "All socket-mode molecules must share the same SocketHub."
-                )
-            self.hub: SocketHub = hub or self.socket_wrappers[0].hub
-            if self.hub is None:
-                raise ValueError("Socket-mode molecules require a SocketHub instance.")
-        else:
-            self.hub = None
-
-        # Assign IDs and initialize non-socket drivers
-        # By default, SocketHub assigns IDs starting from 0, so we start
-        # non-socket IDs after all socket ones.
-        next_id = len(self.socket_wrappers)
-        for wrapper in self.non_socket_wrappers:
-            wrapper.initialize_driver(next_id)
-            next_id += 1
 
        # generate 2D grid points of molecular bath coords in units of Lx, Ly
         x_grid_2d, y_grid_2d = np.meshgrid(x_grid_1d, y_grid_1d)
@@ -369,8 +283,118 @@ class MultiModeSimulation(DummyEMSimulation):
 
         self.if_abc = (abc_x is not None) and (abc_y is not None)
         print(f"Applying Absorbing Boundary Condition : {self.if_abc}, cutoff: {self.abc_cutoff}")
-        self.time = 0.0
+
         self.excited_list = excited_grid_list if excited_grid_list is not None else []
+        self.molecule_pulse = molecule_pulse_drive if molecule_pulse_drive is not None else (lambda _: 0.0)
+        if isinstance(self.molecule_pulse, (int, float)):
+            const = float(self.molecule_pulse)
+            self.molecule_pulse = lambda _t, c=const: c
+        
+
+class MultiModeSimulation(DummyEMSimulation):
+    r"""
+    Mesoscale cavities coupled to MaxwellLink molecules.
+
+    All quantities are in atomic units.
+    """
+
+    def __getattr__(self, name):
+        if self.cavity_geometry is not None and hasattr(self.cavity_geometry, name):
+            return getattr(self.cavity_geometry, name)
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def __init__(
+        self,
+        dt_au: float,
+        molecules: Optional[Iterable[Molecule]] = None,
+        drive: Optional[Union[float, Callable[[float], float]]] = None,
+        hub: Optional[SocketHub] = None,
+        qc_initial: Optional[list] = None,
+        pc_initial: Optional[list] = None,
+        mu_initial: Optional[list] = None,
+        dmudt_initial: Optional[list] = None,
+        include_dse: bool = True,
+        molecule_half_step: bool = False,
+        shift_dipole_baseline: bool = False,
+        gauge="dipole",
+        cavity_geometry: Optional[object] = None,
+    ):
+        r"""
+        Parameters
+        ----------
+        dt_au : float
+            Simulation time step in atomic units.
+        molecules : iterable of Molecule, optional
+            Molecules coupled to the cavity.
+        drive : float or callable, optional
+            Constant drive term or function ``drive(t_au)``.
+        hub : :class:`~maxwelllink.sockets.sockets.SocketHub`, optional
+            Socket hub shared by all socket-mode molecules.
+        qc_initial : list, default: [0.0, 0.0, 0.0]
+            Initial cavity field coordinate (a.u.).
+        pc_initial : list, default: [0.0, 0.0, 0.0]
+            Initial cavity field momentum (a.u.).
+        mu_initial : list, default: [0.0, 0.0, 0.0]
+            Initial total molecular dipole vector (a.u.).
+        dmudt_initial : list, default: [0.0, 0.0, 0.0]
+            Initial time derivative of the total molecular dipole vector (a.u.).
+        include_dse : bool, default: True
+            Include dipole self-energy term in the simulation.
+        molecule_half_step : bool, default: True
+            Whether to further evaluate molecular info for another half time step.
+        shift_dipole_baseline : bool, default: False
+            Whether to shift all dipole values using the initial dipole value, so initial dipole value is changed to zero.
+            Setting this to True can facilitate simulating strong coupling systems with large permanent dipoles.
+        gauge : str, default: "dipole"
+            Gauge choice for light-matter coupling: "dipole".
+        """
+
+        super().__init__(hub=hub, molecules=molecules)
+
+        self.dt = float(dt_au)
+        if self.dt <= 0.0:
+            raise ValueError("dt_au must be positive.")
+
+        self.gauge = gauge.lower()
+        if self.gauge not in ["dipole"]:
+            raise ValueError("gauge must be 'dipole'.")
+        
+        self.drive = drive if drive is not None else (lambda _: 0.0)
+        if isinstance(self.drive, (int, float)):
+            const = float(self.drive)
+            self.drive = lambda _t, c=const: c
+
+        molecules = list(molecules or [])
+        self.wrappers: List[MoleculeMultiModeWrapper] = [
+            MoleculeMultiModeWrapper(molecule=m, dt_au=self.dt) for m in molecules
+        ]
+        self.socket_wrappers = [w for w in self.wrappers if w.mode == "socket"]
+        self.non_socket_wrappers = [w for w in self.wrappers if w.mode == "non-socket"]
+
+        if self.socket_wrappers:
+            hubs = {w.hub for w in self.socket_wrappers if w.hub is not None}
+            if hub is not None:
+                hubs.add(hub)
+            if len(hubs) > 1:
+                raise ValueError(
+                    "All socket-mode molecules must share the same SocketHub."
+                )
+            self.hub: SocketHub = hub or self.socket_wrappers[0].hub
+            if self.hub is None:
+                raise ValueError("Socket-mode molecules require a SocketHub instance.")
+        else:
+            self.hub = None
+
+        # Assign IDs and initialize non-socket drivers
+        # By default, SocketHub assigns IDs starting from 0, so we start
+        # non-socket IDs after all socket ones.
+        next_id = len(self.socket_wrappers)
+        for wrapper in self.non_socket_wrappers:
+            wrapper.initialize_driver(next_id)
+            next_id += 1
+
+        self.time = 0.0
+        self.cavity_geometry = cavity_geometry
 
         if qc_initial is None:
             qc_initial = np.zeros((self.n_mode, 3), dtype=float)
@@ -399,7 +423,7 @@ class MultiModeSimulation(DummyEMSimulation):
             self.dipole -= self.dipole_baseline
             self.dipole_prev = self.dipole.copy()
             print(
-                "[SingleModeCavity] Shifted dipole baseline by:", self.dipole_baseline
+                "[MultiModeCavity] Shifted dipole baseline by:", self.dipole_baseline
             )
 
     # ------------------------------------------------------------------

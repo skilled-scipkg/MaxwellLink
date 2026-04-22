@@ -27,6 +27,7 @@ __all__ = [
     "meep_units_helper",
     "Molecule",
     "SingleModeSimulation",
+    "FabryPerotCavities",
     "MultiModeSimulation",
     "Vector3",
     "LaserDrivenSimulation",
@@ -108,7 +109,15 @@ def __getattr__(name):
         )
 
         return locals()[name]
+    if name in {
+        "FabryPerotCavities",
+    }:
+        from .em_solvers.multimode_cavity import (
+            FabryPerotCavities,
+        )
 
+        return locals()[name]
+    
     if name in {
         "LaserDrivenSimulation",
     }:
