@@ -153,6 +153,7 @@ class MultiModeSimulation(DummyEMSimulation):
         abc_cutoff: float = 0.0,
         excited_grid_list: Optional[list] = None,
         molecule_pulse_drive: Optional[Union[float, Callable[[float], float]]] = None,
+        molecule_pulse_axis: str = "y",
     ):
         r"""
         Parameters
@@ -235,10 +236,28 @@ class MultiModeSimulation(DummyEMSimulation):
                 "At least one coupling axis (x, y, or z) must be specified."
             )
 
+        self.pulse_axis = np.array([False, False, False], dtype=bool)
+        if "x" in molecule_pulse_axis.lower():
+            self.pulse_axis[0] = True
+        if "y" in molecule_pulse_axis.lower():
+            self.pulse_axis[1] = True
+        if "z" in molecule_pulse_axis.lower():
+            self.pulse_axis[2] = True
+
+        # we need True in at least one axis
+        if not np.any(self.pulse_axis):
+            raise ValueError(
+                "At least one pulse axis (x, y, or z) must be specified."
+            )
+        
         self.drive = drive if drive is not None else (lambda _: 0.0)
         if isinstance(self.drive, (int, float)):
             const = float(self.drive)
             self.drive = lambda _t, c=const: c
+        self.molecule_pulse = molecule_pulse_drive if molecule_pulse_drive is not None else (lambda _: 0.0)
+        if isinstance(self.molecule_pulse, (int, float)):
+            const = float(self.molecule_pulse)
+            self.molecule_pulse = lambda _t, c=const: c
 
         molecules = list(molecules or [])
         self.wrappers: List[MoleculeMultiModeWrapper] = [
@@ -586,6 +605,13 @@ class MultiModeSimulation(DummyEMSimulation):
         # Socket molecules
         if self.socket_wrappers:
             self._ensure_socket_connections()
+            if self.excited_list is not [] :
+                efield_vec_excited = np.zeros_like(efield_vec)
+                for wrapper in self.socket_wrappers:
+                    if wrapper.molecule_id in self.excited_list:
+                        efield_vec_excited[wrapper.molecule_id, :] = self.molecule_pulse(self.time) * self.pulse_axis
+                efield_vec += efield_vec_excited
+
             responses = self._collect_socket_responses(efield_vec) 
             for wrapper in self.socket_wrappers:
                 payload = responses.get(wrapper.molecule_id)
@@ -729,7 +755,7 @@ class MultiModeSimulation(DummyEMSimulation):
                 elapsed = current_time - start_time
                 remaining = (elapsed / (idx + 1)) * (steps - (idx + 1))
                 print(
-                    f"[MultipleModeCavity] Completed {idx + 1}/{steps} [{(idx + 1) / steps * 100:.1f}%] steps, time/step: {avg_time_per_step:.2e} seconds, remaining time: {remaining:.2f} seconds."
+                    f"[MultiModeCavity] Completed {idx + 1}/{steps} [{(idx + 1) / steps * 100:.1f}%] steps, time/step: {avg_time_per_step:.2e} seconds, remaining time: {remaining:.2f} seconds."
                 )
 
         # close the hub
