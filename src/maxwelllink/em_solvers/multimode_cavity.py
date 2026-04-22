@@ -18,7 +18,7 @@ import h5py
 
 from ..molecule import Molecule
 from ..sockets import SocketHub, am_master
-from ..units import FS_TO_AU
+from ..units import FS_TO_AU, AU_TO_CM_INV
 from .dummy_em import DummyEMUnits, MoleculeDummyWrapper, DummyEMSimulation
 
 
@@ -126,14 +126,14 @@ class FabryPerotCavities():
 
     def __init__(
         self,
-        frequency_au: float,
+        frequency: float,
         damping_au: float,
         coupling_strength: float = 1.0,
         coupling_axis: str = "xy",
         x_grid_1d: Optional[list] = None,
         y_grid_1d: Optional[list] = None,
-        delta_omega_x_au: float = 0.0,
-        delta_omega_y_au: float = 0.0,
+        delta_omega_x: float = 0.0,
+        delta_omega_y: float = 0.0,
         n_mode_x: int = 1,
         n_mode_y: int = 1,
         abc_cutoff: float = 0.0,
@@ -144,8 +144,8 @@ class FabryPerotCavities():
         r"""
         Parameters
         ----------
-        frequency_au : float
-            Cavity angular frequency :math:`\omega_{\rm c}` (a.u.).
+        frequency : float
+            Cavity angular frequency :math:`\omega_{\rm c}` (cm^-1).
         damping_au : float
             Damping constant :math:`\kappa` (a.u.).
         coupling_strength : float, default: 1.0
@@ -156,9 +156,9 @@ class FabryPerotCavities():
             1D grid points for molecular bath coordinates along x-axis, in units of cavity length Lx. If None, defaults to [0.5] (single point at the center).
         y_grid_1d : list, optional
             1D grid points for molecular bath coordinates along y-axis, in units of cavity length Ly. If None, defaults to [0.5] (single point at the center).
-        delta_omega_x_au : float, default: 0.0
+        delta_omega_x : float, default: 0.0
             Frequency spacing along x-axis for cavity modes, in atomic units. The cavity mode frequencies are calculated as :math:`\omega_{k} = \sqrt{\omega_{\rm c}^2 + (l_x \Delta\omega_x)^2 + (l_y \Delta\omega_y)^2}` where :math:`l_x, l_y` are the mode indices determined by ``n_mode_x`` and ``n_mode_y``.
-        delta_omega_y_au : float, default: 0.0
+        delta_omega_y : float, default: 0.0
             Frequency spacing along y-axis for cavity modes, in atomic units.
         n_mode_x : int, default: 1
             Number of cavity modes along x-axis.
@@ -173,7 +173,9 @@ class FabryPerotCavities():
         molecule_pulse_axis : str, default: "y"
             pulse axis for the molecule pulse.
         """
-        self.frequency = float(frequency_au)
+        self.frequency = float(frequency) / AU_TO_CM_INV
+        self.delta_omega_x_au = float(delta_omega_x) / AU_TO_CM_INV
+        self.delta_omega_y_au = float(delta_omega_y) / AU_TO_CM_INV
         self.damping = float(damping_au)
         self.coupling_strength = float(coupling_strength)
 
@@ -219,10 +221,10 @@ class FabryPerotCavities():
         ky_grid_2d = np.reshape(ky_grid_2d, -1)
 
         # construct cavity mode frequency array for all photon dimensions
-        omega_parallel = np.reshape(((kx_grid_2d / np.pi * delta_omega_x_au) ** 2 + (ky_grid_2d / np.pi * delta_omega_y_au) ** 2) ** 0.5, -1)
-        print("omega_parallel in cm-1", omega_parallel * 219474.63)
+        omega_parallel = np.reshape(((kx_grid_2d / np.pi * self.delta_omega_x_au) ** 2 + (ky_grid_2d / np.pi * self.delta_omega_y_au) ** 2) ** 0.5, -1)
+        print("omega_parallel in cm-1", omega_parallel * AU_TO_CM_INV)
         self.omega_k = (self.frequency**2 + omega_parallel**2) ** 0.5
-        print("omega_k in cm-1", self.omega_k * 219474.63)
+        print("omega_k in cm-1", self.omega_k * AU_TO_CM_INV)
         
         # construct renormalized cavity mode function for each molecular grid point
         self.n_mode = n_mode_x * n_mode_y
@@ -305,7 +307,8 @@ class MultiModeSimulation(DummyEMSimulation):
 
     def __init__(
         self,
-        dt_au: float,
+        dt_au: float = None,
+        dt_fs: float = None,
         molecules: Optional[Iterable[Molecule]] = None,
         drive: Optional[Union[float, Callable[[float], float]]] = None,
         hub: Optional[SocketHub] = None,
@@ -324,6 +327,8 @@ class MultiModeSimulation(DummyEMSimulation):
         ----------
         dt_au : float
             Simulation time step in atomic units.
+        dt_fs : float
+            Simulation time step in femtoseconds. If both dt_au and dt_fs are provided, dt_au will be used.
         molecules : iterable of Molecule, optional
             Molecules coupled to the cavity.
         drive : float or callable, optional
@@ -351,7 +356,9 @@ class MultiModeSimulation(DummyEMSimulation):
 
         super().__init__(hub=hub, molecules=molecules)
 
-        self.dt = float(dt_au)
+        if dt_au is None and dt_fs is None:
+            raise ValueError("Either dt_au or dt_fs must be provided.")
+        self.dt = float(dt_au) if dt_au is not None else float(dt_fs) * FS_TO_AU
         if self.dt <= 0.0:
             raise ValueError("dt_au must be positive.")
 
