@@ -38,6 +38,7 @@ class TLSModel(DummyModel):
         mu12: float = 1.870819866e2,  # 0.1 in MEEP units with [T]=0.1 fs
         orientation: int = 2,
         pe_initial: float = 0.0,
+        e_phase_initial: float = 0.0,
         checkpoint: bool = False,
         restart: bool = False,
         verbose: bool = False,
@@ -57,6 +58,8 @@ class TLSModel(DummyModel):
             Orientation of the dipole moment; can be ``0`` (x), ``1`` (y), or ``2`` (z).
         pe_initial : float, default: 0.0
             Initial population in the excited state.
+        e_phase_initial : float, default: 0.0
+            Initial phase of the coherence between the ground and excited states in radians.
         checkpoint : bool, default: False
             Whether to enable checkpointing.
         restart : bool, default: False
@@ -77,7 +80,7 @@ class TLSModel(DummyModel):
             raise ValueError("Orientation must be 0 (x), 1 (y), or 2 (z).")
 
         self.pe_initial = pe_initial  # initial population in the excited state
-
+        self.e_phase_initial = e_phase_initial  # initial phase of the coherence
         # set the Hamiltonian and density matrix for the TLS molecule
         self.Hs = np.array([[0, 0], [0, self.omega]], dtype=np.complex128)
         self.SIGMAX = np.array([[0, 1], [1, 0]], dtype=np.complex128)
@@ -90,7 +93,7 @@ class TLSModel(DummyModel):
         self.C = np.array([[1], [0]], dtype=np.complex128)
         self.rho = np.dot(self.C, self.C.conj().transpose())
         # reset the initial population
-        self._reset_tls_population(excited_population=self.pe_initial)
+        self._reset_tls_population(excited_population=self.pe_initial, coherence_phase=self.e_phase_initial)
         # optional, checking whether the driver can be paused and resumed properly
         self.restarted = False
 
@@ -134,7 +137,7 @@ class TLSModel(DummyModel):
 
     # ------------ internal functions -------------
 
-    def _reset_tls_population(self, excited_population: float = 0.0):
+    def _reset_tls_population(self, excited_population: float = 0.0, coherence_phase: float = 0.0):
         """
         Reset the TLS population to a specified excited state population in a pure
         state.
@@ -148,12 +151,14 @@ class TLSModel(DummyModel):
         ----------
         excited_population : float, default: 0.0
             Initial population in the excited state.
+        coherence_phase : float, default: 0.0
+            Initial phase of the coherence between the ground and excited states in radians.
         """
 
         if excited_population < 0 or excited_population > 1:
             raise ValueError("Excited population must be between 0 and 1.")
         self.C = np.array(
-            [[(1 - excited_population) ** 0.5], [excited_population**0.5]],
+            [[(1 - excited_population) ** 0.5], [excited_population**0.5 * np.exp(1j * coherence_phase)]],
             dtype=np.complex128,
         )
         self.rho = np.dot(self.C, self.C.conj().transpose())
