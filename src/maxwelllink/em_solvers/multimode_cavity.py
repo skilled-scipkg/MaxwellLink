@@ -986,7 +986,7 @@ class MultiModeSimulation(DummyEMSimulation):
                 npz_path = os.path.join(disk_folder_address, npz_filename)
                 np.savez_compressed(npz_path, **data_for_npz)
                 print(f"[MultiModeCavity] Results saved to {npz_path}")
-
+                data_for_npz.clear()
                 shutil.rmtree(TEMP_DIR)
                 print(f"[MultiModeCavity] Temporary files at {TEMP_DIR} deleted.")
         
