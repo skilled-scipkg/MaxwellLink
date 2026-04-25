@@ -14,7 +14,7 @@ in atomic units at time ``t_au`` and can be passed directly to
 """
 
 from __future__ import annotations
-from units import FS_TO_AU, AU_TO_CM_INV
+from ..units import FS_TO_AU, AU_TO_CM_INV
 import math
 from typing import Callable
 
@@ -60,11 +60,11 @@ def gaussian_pulse(
     callable
         A function ``f(t_au)`` that evaluates the Gaussian pulse at ``t_au``.
     """
-    amplitude = float(amplitude_au)
 
     if time_unit not in ("fs", "au"):
         raise ValueError(f"Invalid time_unit: {time_unit}. Must be 'fs' or 'au'.")
-
+    
+    amplitude = float(amplitude_au)
     sigma_func = float(sigma) if time_unit == "au" else float(sigma) * FS_TO_AU
     t0_func = float(t0) if time_unit == "au" else float(t0) * FS_TO_AU
     t_start_func = float(t_start) if time_unit == "au" else float(t_start) * FS_TO_AU
@@ -125,19 +125,17 @@ def gaussian_enveloped_cosine(
         A function ``f(t_au)`` for use as a time-dependent electric field.
     """
 
-    amplitude = float(amplitude_au)
-
     if time_unit not in ("fs", "au"):
         raise ValueError(f"Invalid time_unit: {time_unit}. Must be 'fs' or 'au'.")
-
+    
+    if frequency_unit not in ("cm^-1", "au"):
+        raise ValueError(f"Invalid frequency_unit: {frequency_unit}. Must be 'cm^-1' or 'au'.")
+    
+    amplitude = float(amplitude_au)
     sigma_func = float(sigma) if time_unit == "au" else float(sigma) * FS_TO_AU
     t0_func = float(t0) if time_unit == "au" else float(t0) * FS_TO_AU
     t_start_func = float(t_start) if time_unit == "au" else float(t_start) * FS_TO_AU
     t_end_func = float(t_end) if time_unit == "au" else float(t_end) * FS_TO_AU
-
-    if frequency_unit not in ("cm^-1", "au"):
-        raise ValueError(f"Invalid frequency_unit: {frequency_unit}. Must be 'cm^-1' or 'au'.")
-
     omega_func = float(omega) if frequency_unit == "au" else float(omega) / AU_TO_CM_INV
     phase = float(phase_rad)
 
@@ -188,18 +186,16 @@ def cosine_drive(
     callable
         A cosine drive suitable for steady-state excitation.
     """
-
-    amplitude = float(amplitude_au)
     
-    if frequency_unit not in ("cm^-1", "au"):
-        raise ValueError(f"Invalid frequency_unit: {frequency_unit}. Must be 'cm^-1' or 'au'.")
-
-    omega_func = float(omega) if frequency_unit == "au" else float(omega) / AU_TO_CM_INV
-    phase = float(phase_rad)
-
     if time_unit not in ("fs", "au"):
         raise ValueError(f"Invalid time_unit: {time_unit}. Must be 'fs' or 'au'.")
 
+    if frequency_unit not in ("cm^-1", "au"):
+        raise ValueError(f"Invalid frequency_unit: {frequency_unit}. Must be 'cm^-1' or 'au'.")
+
+    amplitude = float(amplitude_au)
+    omega_func = float(omega) if frequency_unit == "au" else float(omega) / AU_TO_CM_INV
+    phase = float(phase_rad)
     t_start_func = float(t_start) if time_unit == "au" else float(t_start) * FS_TO_AU
     t_end_func = float(t_end) if time_unit == "au" else float(t_end) * FS_TO_AU
 
