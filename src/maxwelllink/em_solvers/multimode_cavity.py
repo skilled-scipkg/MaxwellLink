@@ -812,46 +812,35 @@ class MultiModeSimulation(DummyEMSimulation):
         else:
             raise ValueError("gauge must be either 'dipole' or 'velocity'.")
 
-    def run(self, 
-            until: Optional[float] = None, 
-            steps: Optional[int] = None,
-            record_history: bool = True,
-            record_to_disk: bool = False,
-            disk_folder_address: Optional[str] = None,
-            npz_filename: Optional[str] = "simulation_results.npz",
-            record_max_steps: Optional[int] = None,
-            record_every_steps: int = 1,
-            record_list: Optional[list] = None,
-            ):
-        """
-        Run the simulation for a specified duration or number of steps.
-
-        Parameters
-        ----------
-        until : float, optional
-            Total simulation time (a.u.). ``steps`` must be ``None``.
-        steps : int, optional
-            Number of steps to execute. ``until`` must be ``None``,
-        record_history : bool, default: True
-            Record time, field, velocity, drive, and molecular response histories.
-        record_to_disk : bool, default: False
-            Whether to save the history data to disk in HDF5 format. If False, the history data will be stored in memory.
-        disk_folder_address : str, optional
-            Folder path for saving history data when ``record_to_disk`` is True.
-        npz_filename : str, optional
-            Name of the .npz file to save the simulation results to when ``record_to_disk`` is True.
-        record_max_steps : int, optional
-            Upper bound for the on-disk history length when ``record_to_disk`` is
-            True. If ``None``, the HDF5 datasets grow dynamically.
-        record_every_steps : int, default: 1
-            Number of steps to record data every ``record_every_steps`` steps.
-        record_list : list of str, optional
-            List of specific data fields to record. Possible values include "time", "qc", "pc", "drive", "energy", "effective_efield", "molecule_response",  "molecule_dipole". If "all", all fields will be recorded. If None, none will be recorded.
-        """
+    def storage_initialization(self,
+                               steps: Optional[int] = None,
+                               record_history: bool = True,
+                               record_to_disk: bool = False,
+                               disk_folder_address: Optional[str] = None,
+                               npz_filename: Optional[str] = None,
+                               h5_filename: Optional[str] = None,
+                               record_max_steps: Optional[int] = None,
+                               record_every_steps: int = 1,
+                               record_list: Optional[list] = None,):
+        '''
+        Initialize storage for recording simulation history.        
+        '''
 
         self.record_history = bool(record_history)
         self.record_to_disk = bool(record_to_disk)
-        
+        self.disk_folder_address = disk_folder_address
+
+        if npz_filename is not None and h5_filename is not None:
+            raise ValueError("Only one of npz_filename and h5_filename can be provided.")
+        elif npz_filename is None and h5_filename is None and record_to_disk:
+            raise ValueError("Either npz_filename or h5_filename must be provided when record_to_disk is True.")
+        elif npz_filename is not None:
+            self.filename = npz_filename
+            self.file_format = "npz"
+        elif h5_filename is not None:
+            self.filename = h5_filename
+            self.file_format = "h5"
+
         if record_every_steps < 1 or isinstance(record_every_steps, int) == False:
             raise ValueError("record_every_steps must be a positive integer.")
         else : self.record_every_steps = int(record_every_steps)
@@ -889,7 +878,7 @@ class MultiModeSimulation(DummyEMSimulation):
 
             if self.record_to_disk and disk_folder_address is not None:
                     
-                dim_dict = {"time": 1,
+                self.dim_dict = {"time": 1,
                     "qc": self.qc.shape, 
                     "pc": self.pc.shape, 
                     "drive": 1, 
@@ -899,22 +888,23 @@ class MultiModeSimulation(DummyEMSimulation):
                     "molecule_dipole": self.dmudt.shape}
 
                 TEMP_DIR = os.path.join(disk_folder_address, "temp_memmap")
+                self.temp_dir = TEMP_DIR
                 if os.path.exists(TEMP_DIR):
                     print(f"[MultiModeCavity] Temporary directory {TEMP_DIR} already exists. Deleting and recreating it.")
                     shutil.rmtree(TEMP_DIR)
                 os.makedirs(TEMP_DIR, exist_ok=True)
                 self.memmaps = {}
-                temp_files = {}
+                self.temp_files = {}
 
                 for name in self.record_list:
-                    dim = dim_dict[name]
+                    dim = self.dim_dict[name]
                     filename = os.path.join(TEMP_DIR, f"temp_{name}.bin")
-                    temp_files[name] = filename
+                    self.temp_files[name] = filename
                     full_shape = (self.record_max_steps,) + (dim if isinstance(dim, tuple) else (dim,))
                     memmap_obj = np.memmap(filename, dtype=np.float64, mode='w+', shape=full_shape)
                     self.memmaps[name] = memmap_obj
 
-            elif self.record_to_disk and disk_folder_address is None:
+            elif self.record_to_disk and self.disk_folder_address is None:
                 raise ValueError("disk_folder_address must be provided when record_to_disk is True.")
             
             else:
@@ -936,6 +926,46 @@ class MultiModeSimulation(DummyEMSimulation):
                 if "molecule_dipole" in self.record_list:
                     self.molecule_dipole_history = []
 
+    def run(self, 
+            until: Optional[float] = None, 
+            steps: Optional[int] = None,
+            record_history: bool = True,
+            record_to_disk: bool = False,
+            disk_folder_address: Optional[str] = None,
+            npz_filename: Optional[str] = None,
+            h5_filename: Optional[str] = None,
+            record_max_steps: Optional[int] = None,
+            record_every_steps: int = 1,
+            record_list: Optional[list] = None,
+            ):
+        """
+        Run the simulation for a specified duration or number of steps.
+
+        Parameters
+        ----------
+        until : float, optional
+            Total simulation time (a.u.). ``steps`` must be ``None``.
+        steps : int, optional
+            Number of steps to execute. ``until`` must be ``None``,
+        record_history : bool, default: True
+            Record time, field, velocity, drive, and molecular response histories.
+        record_to_disk : bool, default: False
+            Whether to save the history data to disk in HDF5 format. If False, the history data will be stored in memory.
+        disk_folder_address : str, optional
+            Folder path for saving history data when ``record_to_disk`` is True.
+        npz_filename : str, optional
+            Name of the .npz file to save the simulation results to when ``record_to_disk`` is True.
+        h5_filename : str, optional
+            Name of the .h5 file to save the simulation results to when ``record_to_disk`` is True.
+        record_max_steps : int, optional
+            Upper bound for the on-disk history length when ``record_to_disk`` is
+            True. If ``None``, the HDF5 datasets grow dynamically.
+        record_every_steps : int, default: 1
+            Number of steps to record data every ``record_every_steps`` steps.
+        record_list : list of str, optional
+            List of specific data fields to record. Possible values include "time", "qc", "pc", "drive", "energy", "effective_efield", "molecule_response",  "molecule_dipole". If "all", all fields will be recorded. If None, none will be recorded.
+        """
+
         if (until is None) == (steps is None):
             raise ValueError("Specify exactly one of 'until' or 'steps'.")
 
@@ -943,6 +973,16 @@ class MultiModeSimulation(DummyEMSimulation):
             if until < self.time:
                 return
             steps = int(np.ceil((until - self.time) / self.dt))
+
+        self.storage_initialization(steps=steps,
+                                    record_history=record_history,
+                                    record_to_disk=record_to_disk,
+                                    disk_folder_address=disk_folder_address,
+                                    npz_filename=npz_filename,
+                                    h5_filename=h5_filename,
+                                    record_max_steps=record_max_steps,
+                                    record_every_steps=record_every_steps,
+                                    record_list=record_list)
 
         start_time = time.perf_counter()
         previous_time = start_time
@@ -971,25 +1011,25 @@ class MultiModeSimulation(DummyEMSimulation):
 
         if self.record_history:
 
-            if self.record_to_disk and disk_folder_address is not None :
+            if self.record_to_disk and self.disk_folder_address is not None :
 
                 for mm in self.memmaps.values():
                     mm.flush()
 
                 data_for_npz = {}
                 for name in self.record_list:
-                    dim = dim_dict[name]
+                    dim = self.dim_dict[name]
                     full_shape = (self.record_max_steps,) + (dim if isinstance(dim, tuple) else (dim,))
-                    filename = temp_files[name]
+                    filename = self.temp_files[name]
                     mmap_ro = np.memmap(filename, dtype=np.float64, mode='r', shape=full_shape)
                     data_for_npz[name] = mmap_ro
 
-                npz_path = os.path.join(disk_folder_address, npz_filename)
+                npz_path = os.path.join(self.disk_folder_address, self.filename)
                 np.savez_compressed(npz_path, **data_for_npz)
                 print(f"[MultiModeCavity] Results saved to {npz_path}")
                 data_for_npz.clear()
-                shutil.rmtree(TEMP_DIR)
-                print(f"[MultiModeCavity] Temporary files at {TEMP_DIR} deleted.")
+                shutil.rmtree(self.temp_dir)
+                print(f"[MultiModeCavity] Temporary files at {self.temp_dir} deleted.")
         
         # close the hub
         if self.hub is not None:
