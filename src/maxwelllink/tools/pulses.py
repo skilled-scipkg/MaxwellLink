@@ -65,15 +65,15 @@ def gaussian_pulse(
         raise ValueError(f"Invalid time_unit: {time_unit}. Must be 'fs' or 'au'.")
     
     amplitude = float(amplitude_au)
-    sigma_func = float(sigma) if time_unit == "au" else float(sigma) * FS_TO_AU
-    t0_func = float(t0) if time_unit == "au" else float(t0) * FS_TO_AU
-    t_start_func = float(t_start) if time_unit == "au" else float(t_start) * FS_TO_AU
-    t_end_func = float(t_end) if time_unit == "au" else float(t_end) * FS_TO_AU
+    sigma_au = float(sigma) if time_unit == "au" else float(sigma) * FS_TO_AU
+    t0_au = float(t0) if time_unit == "au" else float(t0) * FS_TO_AU
+    t_start_au = float(t_start) if time_unit == "au" else float(t_start) * FS_TO_AU
+    t_end_au = float(t_end) if time_unit == "au" else float(t_end) * FS_TO_AU
 
     def _drive(t_au: float) -> float:
-        if t_au < t_start_func or t_au > t_end_func:
+        if t_au < t_start_au or t_au > t_end_au:
             return 0.0
-        x = (float(t_au) - t0_func) / sigma_func
+        x = (float(t_au) - t0_au) / sigma_au
         return amplitude * math.exp(-0.5 * x * x)
 
     return _drive
@@ -132,19 +132,19 @@ def gaussian_enveloped_cosine(
         raise ValueError(f"Invalid frequency_unit: {frequency_unit}. Must be 'cm^-1' or 'au'.")
     
     amplitude = float(amplitude_au)
-    sigma_func = float(sigma) if time_unit == "au" else float(sigma) * FS_TO_AU
-    t0_func = float(t0) if time_unit == "au" else float(t0) * FS_TO_AU
-    t_start_func = float(t_start) if time_unit == "au" else float(t_start) * FS_TO_AU
-    t_end_func = float(t_end) if time_unit == "au" else float(t_end) * FS_TO_AU
-    omega_func = float(omega) if frequency_unit == "au" else float(omega) / AU_TO_CM_INV
+    sigma_au = float(sigma) if time_unit == "au" else float(sigma) * FS_TO_AU
+    t0_au = float(t0) if time_unit == "au" else float(t0) * FS_TO_AU
+    t_start_au = float(t_start) if time_unit == "au" else float(t_start) * FS_TO_AU
+    t_end_au = float(t_end) if time_unit == "au" else float(t_end) * FS_TO_AU
+    omega_au = float(omega) if frequency_unit == "au" else float(omega) / AU_TO_CM_INV
     phase = float(phase_rad)
 
     def _drive(t_au: float) -> float:
-        if t_au < t_start_func or t_au > t_end_func:
+        if t_au < t_start_au or t_au > t_end_au:
             return 0.0
-        t = float(t_au) - t0_func
-        envelope = math.exp(-0.5 * (t / sigma_func) ** 2)
-        return amplitude * envelope * math.cos(omega_func * t + phase)
+        t = float(t_au) - t0_au
+        envelope = math.exp(-0.5 * (t / sigma_au) ** 2)
+        return amplitude * envelope * math.cos(omega_au * t + phase)
 
     return _drive
 
@@ -194,14 +194,14 @@ def cosine_drive(
         raise ValueError(f"Invalid frequency_unit: {frequency_unit}. Must be 'cm^-1' or 'au'.")
 
     amplitude = float(amplitude_au)
-    omega_func = float(omega) if frequency_unit == "au" else float(omega) / AU_TO_CM_INV
+    omega_au = float(omega) if frequency_unit == "au" else float(omega) / AU_TO_CM_INV
     phase = float(phase_rad)
-    t_start_func = float(t_start) if time_unit == "au" else float(t_start) * FS_TO_AU
-    t_end_func = float(t_end) if time_unit == "au" else float(t_end) * FS_TO_AU
+    t_start_au = float(t_start) if time_unit == "au" else float(t_start) * FS_TO_AU
+    t_end_au = float(t_end) if time_unit == "au" else float(t_end) * FS_TO_AU
 
     def _drive(t_au: float) -> float:
-        if t_au < t_start_func or t_au > t_end_func:
+        if t_au < t_start_au or t_au > t_end_au:
             return 0.0
-        return amplitude * math.cos(omega_func * float(t_au) + phase)
+        return amplitude * math.cos(omega_au * float(t_au) + phase)
 
     return _drive
