@@ -646,7 +646,7 @@ class MultiModeSimulation(DummyEMSimulation):
         for wrapper in self.non_socket_wrappers:
             if self.excited_list is not [] :
                 if wrapper.molecule_id in self.excited_list:
-                    efield_vec[wrapper.molecule_id, :] -= self.molecule_pulse(self.time) * self.pulse_axis
+                    efield_vec[wrapper.molecule_id, :] += self.molecule_pulse(self.time) * self.pulse_axis
 
             wrapper.propagate(efield_vec[wrapper.molecule_id,:])
             amp = wrapper.calc_amp_vector() * wrapper.rescaling_factor
@@ -659,7 +659,7 @@ class MultiModeSimulation(DummyEMSimulation):
             if self.excited_list is not [] :
                 for wrapper in self.socket_wrappers:
                     if wrapper.molecule_id in self.excited_list:
-                        efield_vec[wrapper.molecule_id, :] -= self.molecule_pulse(self.time) * self.pulse_axis
+                        efield_vec[wrapper.molecule_id, :] += self.molecule_pulse(self.time) * self.pulse_axis
 
             responses = self._collect_socket_responses(efield_vec) 
             for wrapper in self.socket_wrappers:
