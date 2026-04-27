@@ -49,10 +49,14 @@ Download and build the DFTB+ fork from source:
 
    git clone git@github.com:TEL-Research/dftbplus.git
    cd dftbplus
+
    git submodule update --init --recursive
+
    cmake -S . -B build -DWITH_SOCKETS=ON -DCMAKE_BUILD_TYPE=Release \
      -DCMAKE_INSTALL_PREFIX=$HOME/.local
+
    cmake --build build --parallel
+   
    cmake --install build
 
 After installation, ensure the resulting ``dftb+`` executable is on ``PATH`` or
