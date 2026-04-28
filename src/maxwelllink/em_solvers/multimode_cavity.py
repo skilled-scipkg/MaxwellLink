@@ -737,14 +737,14 @@ class MultiModeSimulation(DummyEMSimulation):
         acceleration = self._calc_acceleration(self.time, self.dipole, self.qc)
 
         # 3. update momentum from half step to full step
-        self.pc = pc_half + 0.5 * self.dt * acceleration
-
-        self.pc *= np.exp(-self.damping * self.dt)
-
         # apply absorbing boundary condition to the cavity field if enabled
         if self.if_abc: 
-            self.pc[:,0] = self.pc[:,0] @ self.abc_x
-            self.pc[:,1] = self.pc[:,1] @ self.abc_y
+            self.pc[:,0] = pc_half + 0.5 * self.dt * acceleration[:,0] @ self.abc_x
+            self.pc[:,1] = pc_half + 0.5 * self.dt * acceleration[:,1] @ self.abc_y
+        else :
+            self.pc = pc_half + 0.5 * self.dt * acceleration
+
+        self.pc *= np.exp(-self.damping * self.dt)
 
         # 4. update acceleration and time
         self.time += self.dt
