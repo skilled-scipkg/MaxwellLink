@@ -52,6 +52,7 @@ Additional Molecular Drivers
 .. toctree::
    :maxdepth: 1
 
+   notebook/singlemode_sho.ipynb
    notebook/dftbplus.ipynb
 
 Users can also explore different features of **MaxwellLink** via ``vibe simulations``.  See :doc:`../agent_skills` for more details.
