@@ -14,7 +14,7 @@ Laser-Driven Dynamics
 .. toctree::
    :maxdepth: 1
 
-   notebook/driven_tls.ipynb
+   notebook/01_driven_tls.ipynb
 
 Single-Mode Cavity
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -22,10 +22,11 @@ Single-Mode Cavity
 .. toctree::
    :maxdepth: 1
 
-   notebook/singlemode_tls.ipynb
-   notebook/singlemode_esc.ipynb
-   notebook/singlemode_many_drivers.ipynb
-   notebook/singlemode_vsc.ipynb
+   notebook/02_singlemode_tls.ipynb
+   notebook/03_singlemode_sho.ipynb
+   notebook/04_singlemode_esc.ipynb
+   notebook/05_singlemode_many_drivers.ipynb
+   notebook/06_singlemode_vsc.ipynb
 
 
 MEEP FDTD
@@ -34,8 +35,8 @@ MEEP FDTD
 .. toctree::
    :maxdepth: 1
 
-   notebook/meep_tls_spontaneous_emission.ipynb
-   notebook/meep_vsc.ipynb
+   notebook/07_meep_tls_spontaneous_emission.ipynb
+   notebook/08_meep_vsc.ipynb
 
 
 Advanced Features
@@ -44,7 +45,7 @@ Advanced Features
 .. toctree::
    :maxdepth: 1
 
-   notebook/advanced_features_polarization_type.ipynb
+   notebook/09_advanced_features_polarization_type.ipynb
 
 Additional Molecular Drivers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -52,7 +53,6 @@ Additional Molecular Drivers
 .. toctree::
    :maxdepth: 1
 
-   notebook/singlemode_sho.ipynb
-   notebook/dftbplus.ipynb
+   notebook/10_dftbplus.ipynb
 
 Users can also explore different features of **MaxwellLink** via ``vibe simulations``.  See :doc:`../agent_skills` for more details.
