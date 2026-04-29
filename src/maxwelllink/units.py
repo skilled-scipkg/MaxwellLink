@@ -20,6 +20,8 @@ AU_TO_CM_INV = AU_TO_EV * EV_TO_CM_INV
 CM_INV_TO_AU = 1.0 / AU_TO_CM_INV
 CM_INV_TO_EV = 1.0 / EV_TO_CM_INV
 EV_TO_AU = 1.0 / AU_TO_EV
+K_TO_AU = 3.166811563e-6  # 1 K in atomic units of energy
+AU_TO_K = 1.0 / K_TO_AU
 
 # other units
 FS_INV_TO_EV = 4.135668
@@ -35,9 +37,9 @@ def unit(from_unit, to_unit='au'):
     from_unit = str(from_unit).upper()
     to_unit = str(to_unit).upper()
 
-    if from_unit not in ['PS', 'FS', 'AU', 'EV', 'CM_INV']:
+    if from_unit not in ['PS', 'FS', 'AU', 'EV', 'CM_INV', 'K']:
         raise ValueError(f"Unsupported from_unit: {from_unit}")
-    if to_unit not in ['PS', 'FS', 'AU', 'EV', 'CM_INV']:
+    if to_unit not in ['PS', 'FS', 'AU', 'EV', 'CM_INV', 'K']:
         raise ValueError(f"Unsupported to_unit: {to_unit}")
     if from_unit == to_unit:
         return 1.0

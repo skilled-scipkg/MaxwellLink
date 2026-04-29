@@ -316,10 +316,12 @@ class MultiModeSimulation(DummyEMSimulation):
         molecules: Optional[Iterable[Molecule]] = None,
         drive: Optional[Union[float, Callable[[float], float]]] = None,
         hub: Optional[SocketHub] = None,
-        qc_initial: Optional[list] = None,
-        pc_initial: Optional[list] = None,
-        mu_initial: Optional[list] = None,
-        dmudt_initial: Optional[list] = None,
+        qc_initial: Optional[np.ndarray] = None,
+        pc_initial: Optional[np.ndarray] = None,
+        T_initial_au: Optional[float] = None,
+        random_seed: Optional[int] = None,
+        mu_initial: Optional[np.ndarray] = None,
+        dmudt_initial: Optional[np.ndarray] = None,
         include_dse: bool = True,
         molecule_half_step: bool = False,
         shift_dipole_baseline: bool = False,
@@ -337,13 +339,18 @@ class MultiModeSimulation(DummyEMSimulation):
             Constant drive term or function ``drive(t_au)``.
         hub : :class:`~maxwelllink.sockets.sockets.SocketHub`, optional
             Socket hub shared by all socket-mode molecules.
-        qc_initial : list, default: [0.0, 0.0, 0.0]
+        qc_initial : np.ndarray, default: None
             Initial cavity field coordinate (a.u.).
-        pc_initial : list, default: [0.0, 0.0, 0.0]
+        pc_initial : np.ndarray, default: None
             Initial cavity field momentum (a.u.).
-        mu_initial : list, default: [0.0, 0.0, 0.0]
+        T_initial_au : float, optional
+            Initial temperature for Maxwell-Boltzmann distribution of cavity mode momenta, in atomic units. 
+            If provided, it will override the provided pc_initial and initialize the cavity mode momenta according to the Maxwell-Boltzmann distribution at this temperature.
+        random_seed : int, optional
+            Random seed for Maxwell-Boltzmann initialization of cavity mode momenta. Effective only if T_initial_au is provided.
+        mu_initial : np.ndarray, default: None
             Initial total molecular dipole vector (a.u.).
-        dmudt_initial : list, default: [0.0, 0.0, 0.0]
+        dmudt_initial : np.ndarray, default: None
             Initial time derivative of the total molecular dipole vector (a.u.).
         include_dse : bool, default: True
             Include dipole self-energy term in the simulation.
@@ -405,14 +412,19 @@ class MultiModeSimulation(DummyEMSimulation):
         self.time = 0.0
         self.cavity_geometry = cavity_geometry
 
-        if qc_initial is None:
-            qc_initial = np.zeros((self.n_mode, 3), dtype=float)
-        if pc_initial is None:
-            pc_initial = np.zeros((self.n_mode, 3), dtype=float)
         if mu_initial is None:
             mu_initial = np.zeros((self.n_grid, 3), dtype=float)
         if dmudt_initial is None:
             dmudt_initial = np.zeros((self.n_grid, 3), dtype=float)
+        if qc_initial is None:
+            qc_initial = np.zeros((self.n_mode, 3), dtype=float)
+        if pc_initial is None:
+            pc_initial = np.zeros((self.n_mode, 3), dtype=float)
+        
+        if T_initial_au is not None: 
+            if T_initial_au <= 0.0:
+                raise ValueError("Initial temperature must be positive.")
+            pc_initial = self._Maxwell_Boltzmann_initialize(T_initial_au, seed=random_seed)
 
         self.qc = qc_initial * self.axis
         self.pc = pc_initial * self.axis
@@ -438,6 +450,31 @@ class MultiModeSimulation(DummyEMSimulation):
     # ------------------------------------------------------------------
     # Core helpers
     # ------------------------------------------------------------------
+    def _Maxwell_Boltzmann_initialize(self, T_au: float, seed: Optional[int] = None):
+        """
+        Initialize cavity mode coordinates and momenta according to Maxwell-Boltzmann distribution at the given temperature.
+
+        Parameters
+        ----------
+        T_au : float
+            Temperature in atomic units. k_B is set to 1 in atomic units, so T_au is effectively the thermal energy. Must be positive.
+        seed : int, optional
+            Random seed for reproducible results.
+        """
+    
+        if seed is not None:
+            np.random.seed(seed)
+
+        if self.n_mode <= 1:
+            print("[MultiModeCavity] Warning: Only one mode present. Initializing with zero momenta.")
+            return np.zeros((self.n_mode, 3))
+        
+        p_mb  = np.random.normal(0, np.sqrt(T_au), size=(self.n_mode, 3))
+        p_mb -= np.mean(p_mb, axis=0)  # zero total momentum
+        T_cur = np.sum(p_mb**2) / (3 * (self.n_mode - 1))
+        scaling_factor = np.sqrt(T_au / T_cur)
+        return p_mb * scaling_factor
+
     def _evaluate_drive(self, time_au: float) -> float:
         """
         Evaluate the drive term at the given time.
