@@ -122,16 +122,13 @@ class FabryPerotCavities():
 
     def __init__(
         self,
-        frequency: float = None,
         frequency_au: float = None,   
         damping_au: float = 0.0,
         coupling_strength: float = 1.0,
         coupling_axis: str = "xy",
         x_grid_1d: Optional[list] = None,
         y_grid_1d: Optional[list] = None,
-        delta_omega_x: float = None,
         delta_omega_x_au: float = None,
-        delta_omega_y: float = None,
         delta_omega_y_au: float = None,
         n_mode_x: int = 1,
         n_mode_y: int = 1,
@@ -143,8 +140,6 @@ class FabryPerotCavities():
         r"""
         Parameters
         ----------
-        frequency : float
-            Cavity angular frequency :math:`\omega_{\rm c}` (cm^-1).
         frequency_au : float
             Cavity angular frequency :math:`\omega_{\rm c}` (a.u.).
         damping_au : float
@@ -157,12 +152,8 @@ class FabryPerotCavities():
             1D grid points for molecular bath coordinates along x-axis, in units of cavity length Lx. If None, defaults to [0.5] (single point at the center).
         y_grid_1d : list, optional
             1D grid points for molecular bath coordinates along y-axis, in units of cavity length Ly. If None, defaults to [0.5] (single point at the center).
-        delta_omega_x : float, default: 0.0
-            Frequency spacing along x-axis for cavity modes, in atomic units. The cavity mode frequencies are calculated as :math:`\omega_{k} = \sqrt{\omega_{\rm c}^2 + (l_x \Delta\omega_x)^2 + (l_y \Delta\omega_y)^2}` where :math:`l_x, l_y` are the mode indices determined by ``n_mode_x`` and ``n_mode_y``.
         delta_omega_x_au : float, default: 0.0
-            Frequency spacing along x-axis for cavity modes, in atomic units.
-        delta_omega_y : float, default: 0.0
-            Frequency spacing along y-axis for cavity modes, in cm^-1.
+            Frequency spacing along x-axis for cavity modes, in atomic units. The cavity mode frequencies are calculated as :math:`\omega_{k} = \sqrt{\omega_{\rm c}^2 + (l_x \Delta\omega_x)^2 + (l_y \Delta\omega_y)^2}` where :math:`l_x, l_y` are the mode indices determined by ``n_mode_x`` and ``n_mode_y``.
         delta_omega_y_au : float, default: 0.0
             Frequency spacing along y-axis for cavity modes, in atomic units.
         n_mode_x : int, default: 1
@@ -178,26 +169,17 @@ class FabryPerotCavities():
         molecule_pulse_axis : str, default: "y"
             pulse axis for the molecule pulse.
         """
-        if frequency is None and frequency_au is None:
-            raise ValueError("Either frequency or frequency_au must be provided.")
-        if frequency_au is None: 
-            self.frequency_au = float(frequency) / AU_TO_CM_INV
-        else: 
-            self.frequency_au = float(frequency_au)
+        if frequency_au is None:
+            raise ValueError("frequency_au must be provided.")
+        self.frequency_au = float(frequency_au)
 
-        if delta_omega_x is None and delta_omega_x_au is None:
-            raise ValueError("Either delta_omega_x or delta_omega_x_au must be provided.")
-        if delta_omega_x_au is None: 
-            self.delta_omega_x_au = float(delta_omega_x) / AU_TO_CM_INV
-        else: 
-            self.delta_omega_x_au = float(delta_omega_x_au)
+        if delta_omega_x_au is None:
+            raise ValueError("delta_omega_x_au must be provided.")
+        self.delta_omega_x_au = float(delta_omega_x_au)
 
-        if delta_omega_y is None and delta_omega_y_au is None:
-            raise ValueError("Either delta_omega_y or delta_omega_y_au must be provided.")
-        if delta_omega_y_au is None: 
-            self.delta_omega_y_au = float(delta_omega_y) / AU_TO_CM_INV
-        else: 
-            self.delta_omega_y_au = float(delta_omega_y_au)
+        if delta_omega_y_au is None:
+            raise ValueError("delta_omega_y_au must be provided.")
+        self.delta_omega_y_au = float(delta_omega_y_au)
 
         self.damping = float(damping_au)
         self.coupling_strength = float(coupling_strength)
