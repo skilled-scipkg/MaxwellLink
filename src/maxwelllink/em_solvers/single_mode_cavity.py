@@ -292,6 +292,7 @@ class SingleModeSimulation(DummyEMSimulation):
             self.rng = np.random.default_rng(thermostat_seed)
             qc_initial = self.rng.normal(scale=np.sqrt(1.0 / self.frequency), size=3)
             pc_initial = self.rng.normal(scale=np.sqrt(self.frequency), size=3)
+            print(f"[SingleModeCavity] Initializing qc and pc with random seed {thermostat_seed}.")
         else :
             self.rng = np.random.default_rng()
 
