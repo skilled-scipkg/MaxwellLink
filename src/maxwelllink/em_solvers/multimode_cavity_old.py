@@ -150,9 +150,9 @@ class FabryPerotCavity():
         coupling_axis : str, default: "xy"
             Component(s) of the molecular dipole used for coupling.
         x_grid_1d : list, optional
-            1D grid points for molecular bath coordinates along x-axis, in units of cavity length Lx. If None, defaults to [0.5] (single point at the center).
+            1D list of grid points for molecular bath coordinates along x-axis, in units of cavity length Lx.
         y_grid_1d : list, optional
-            1D grid points for molecular bath coordinates along y-axis, in units of cavity length Ly. If None, defaults to [0.5] (single point at the center).
+            1D list of grid points for molecular bath coordinates along y-axis, in units of cavity length Ly.
         n_grid_x : int, default: 1
             Number of grid points for molecular bath coordinates along x-axis, in units of cavity length Lx. If provided together with n_grid_y, it will override x_grid_1d and generate a uniform grid along x-axis. If x_grid_1d is provided, n_grid_x will be ignored.
         n_grid_y : int, default: 1
@@ -352,12 +352,12 @@ class MultiModeSimulation(DummyEMSimulation):
         molecules: Optional[Iterable[Molecule]] = None,
         drive: Optional[Union[float, Callable[[float], float]]] = None,
         hub: Optional[SocketHub] = None,
-        qc_initial: Optional[np.ndarray] = None,
-        pc_initial: Optional[np.ndarray] = None,
+        qc_initial: Optional[list] = None,
+        pc_initial: Optional[list] = None,
         T_initial_au: Optional[float] = None,
-        random_seed: Optional[int] = None,
-        mu_initial: Optional[np.ndarray] = None,
-        dmudt_initial: Optional[np.ndarray] = None,
+        thermostat_seed: Optional[int] = None,
+        mu_initial: Optional[list] = None,
+        dmudt_initial: Optional[list] = None,
         NVT_T_au: Optional[float] = None,
         langevin_tau_au: Optional[float] = None,
         include_dse: bool = True,
@@ -386,8 +386,8 @@ class MultiModeSimulation(DummyEMSimulation):
         T_initial_au : float, optional
             Initial temperature for Maxwell-Boltzmann distribution of cavity mode momenta, in atomic units. 
             If provided, it will override the provided pc_initial and initialize the cavity mode momenta according to the Maxwell-Boltzmann distribution at this temperature.
-        random_seed : int, optional
-            Random seed for Maxwell-Boltzmann initialization of cavity mode momenta. Effective only if T_initial_au is provided.
+        thermostat_seed : int, optional
+            Random seed for Maxwell-Boltzmann initialization of cavity mode and NVT thermostats.
         mu_initial : np.ndarray, default: None
             Initial total molecular dipole vector (a.u.).
         dmudt_initial : np.ndarray, default: None
@@ -458,19 +458,44 @@ class MultiModeSimulation(DummyEMSimulation):
 
         if mu_initial is None:
             mu_initial = np.zeros((self.n_grid, 3), dtype=float)
+        else :
+            mu_initial = np.array(mu_initial, dtype=float).reshape((self.n_grid, 3))
         if dmudt_initial is None:
             dmudt_initial = np.zeros((self.n_grid, 3), dtype=float)
+        else :
+            dmudt_initial = np.array(dmudt_initial, dtype=float).reshape((self.n_grid, 3))
         if qc_initial is None:
-            qc_initial = np.zeros((self.n_mode, 3), dtype=float)
+            need_qc_initial = True
+        else :
+            qc_initial = np.array(qc_initial, dtype=float).reshape((self.n_mode, 3))
         if pc_initial is None:
-            pc_initial = np.zeros((self.n_mode, 3), dtype=float)
+            need_pc_initial = True
+        else :
+            pc_initial = np.array(pc_initial, dtype=float).reshape((self.n_mode, 3))
         
+        if thermostat_seed is not None:
+            self.rng = np.random.default_rng(thermostat_seed)
+        else :
+            self.rng = np.random.default_rng()
+
         if T_initial_au is not None: 
             if T_initial_au <= 0.0:
                 raise ValueError("Initial temperature must be positive.")
-            if np.any(pc_initial != 0.0):
-                print("[MultiModeSimulation] Warning: pc_initial is provided and will be overridden by Maxwell-Boltzmann initialization.")
-            pc_initial = self._Maxwell_Boltzmann_initialize(T_initial_au, seed=random_seed)
+            if need_pc_initial and need_qc_initial:
+                pc_initial, qc_initial = self._Maxwell_Boltzmann_initialize(T_initial_au)
+                print(f"[MultiModeCavity] Initialized qc_initial and pc_initial with Maxwell-Boltzmann distribution at T = {T_initial_au*AU_TO_K} K = {T_initial_au} a.u.")
+            elif need_qc_initial:
+                qc_initial = self._Maxwell_Boltzmann_initialize(T_initial_au)[1]
+                print(f"[MultiModeCavity] Initialized qc_initial with Maxwell-Boltzmann distribution at T = {T_initial_au*AU_TO_K} K = {T_initial_au} a.u.")
+            elif need_pc_initial:
+                pc_initial = self._Maxwell_Boltzmann_initialize(T_initial_au)[0]
+                print(f"[MultiModeCavity] Initialized pc_initial with Maxwell-Boltzmann distribution at T = {T_initial_au*AU_TO_K} K = {T_initial_au} a.u.")
+            else :
+                print("[MultiModeCavity] Warning: Both qc_initial and pc_initial are provided, so T_initial_au is ignored for Maxwell-Boltzmann initialization.")
+        else :
+            qc_initial = np.zeros((self.n_mode, 3), dtype=float)
+            pc_initial = np.zeros((self.n_mode, 3), dtype=float)
+            print("[MultiModeCavity] Warning: pc_initial, qc_initial and T_initial_au are not provided, so cavity mode momenta will be initialized to zero.")
 
         self.qc = qc_initial * self.axis
         self.pc = pc_initial * self.axis
@@ -492,12 +517,11 @@ class MultiModeSimulation(DummyEMSimulation):
                 self.langevin_tau_au = langevin_tau_au
                 self.T_l = np.exp(-self.dt / self.langevin_tau_au)
                 self.S_l = np.sqrt(self.NVT_T_au * (1.0 - self.T_l**2))
-                self.rng = np.random.default_rng()
             else :
                 raise ValueError("langevin_tau_au must be provided when NVT_T_au is provided to specify the characteristic time for Langevin thermostat.")
             
             self.if_NVT = True
-            print(f"[MultiModeSimulation] NVT thermostat enabled with T = {self.NVT_T_au*AU_TO_K} K = {self.NVT_T_au} a.u., Langevin tau = {self.langevin_tau_au*AU_TO_FS} fs = {self.langevin_tau_au} a.u.")
+            print(f"[MultiModeCavity] NVT thermostat enabled with T = {self.NVT_T_au*AU_TO_K} K = {self.NVT_T_au} a.u., Langevin tau = {self.langevin_tau_au*AU_TO_FS} fs = {self.langevin_tau_au} a.u.")
 
         self.include_dse = bool(include_dse)
         self.molecule_half_step = bool(molecule_half_step)
@@ -515,7 +539,7 @@ class MultiModeSimulation(DummyEMSimulation):
     # ------------------------------------------------------------------
     # Core helpers
     # ------------------------------------------------------------------
-    def _Maxwell_Boltzmann_initialize(self, T_au: float, seed: Optional[int] = None):
+    def _Maxwell_Boltzmann_initialize(self, T_au: float):
         """
         Initialize cavity mode coordinates and momenta according to Maxwell-Boltzmann distribution at the given temperature.
 
@@ -526,20 +550,22 @@ class MultiModeSimulation(DummyEMSimulation):
         seed : int, optional
             Random seed for reproducible results.
         """
-    
-        if seed is not None:
-            np.random.seed(seed)
-
         if self.n_mode <= 1:
             print("[MultiModeCavity] Warning: Only one mode present. Initializing with zero momenta.")
-            return np.zeros((self.n_mode, 3))
+            return np.zeros((self.n_mode, 3)), np.zeros((self.n_mode, 3))
         
         print(f"[MultiModeCavity] Initializing cavity mode momenta with Maxwell-Boltzmann distribution at T = {T_au*AU_TO_K} K = {T_au} a.u.")
-        p_mb  = np.random.normal(0, np.sqrt(T_au), size=(self.n_mode, 3))
+        p_mb  = self.rng.normal(0, np.sqrt(T_au), size=(self.n_mode, 3))
         p_mb -= np.mean(p_mb, axis=0)  # remove any net momentum to ensure total momentum is zero
-        T_cur = np.sum(p_mb**2) / (3 * (self.n_mode - 1))
-        scaling_factor = np.sqrt(T_au / T_cur)
-        return p_mb * scaling_factor
+        T_cur_p = np.sum(p_mb**2) / (3 * (self.n_mode - 1))
+        scaling_factor_p = np.sqrt(T_au / T_cur_p)
+
+        q_mb = self.rng.normal(0, np.sqrt(T_au) / self.omega_k[:, np.newaxis], size=(self.n_mode, 3))
+        q_mb -= np.mean(q_mb, axis=0)  # remove any net displacement to ensure total displacement is zero
+        T_cur_q = np.sum((self.omega_k[:, np.newaxis] * q_mb)**2) / (3 * (self.n_mode - 1))
+        scaling_factor_q = np.sqrt(T_au / T_cur_q)
+
+        return p_mb * scaling_factor_p, q_mb * scaling_factor_q
 
     def _evaluate_drive(self, time_au: float) -> float:
         """
