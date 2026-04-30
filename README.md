@@ -29,7 +29,11 @@ The latest version of **MaxwellLink** (v0.3) ships with [**AI Agent Skills**](ht
 
 ## Supported light-matter simulation schemes
 
-The most appealing feature of **MaxwellLink** is that it enables the self-consistent coupling of **one EM solver** plus **N different molecular drivers** concurrently. The socket communication technique further allows distributed light-matter simulations on different machines and HPC nodes -- both the EM solver and molecular drivers can have their own MPI parallel processes.
+The most appealing feature of **MaxwellLink** is that it enables the self-consistent coupling of **one EM solver** plus **N different molecular drivers** concurrently. 
+
+![MaxwellLink workflow](media/workflow.png)
+
+The socket communication technique further allows distributed light-matter simulations on different machines and HPC nodes -- both the EM solver and molecular drivers can have their **own MPI parallel processes**.
 
 As of today, the following [EM solvers](https://maxwelllink.org/em_solvers/index.html) and [molecular drivers](https://maxwelllink.org/drivers/index.html) are supported.
 
