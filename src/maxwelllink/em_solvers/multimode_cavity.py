@@ -10,7 +10,7 @@ embedded (non-socket) molecular drivers.
 from __future__ import annotations
 
 import json
-import os, shutil, h5py
+import os, shutil
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, Union
 import time
 
@@ -1140,8 +1140,8 @@ class MultiModeSimulation(DummyEMSimulation):
                         self.memmaps[name] = memmap_obj
                 
                 else : # h5 format
-                    
                     assert self.file_format == "h5"
+                    import h5py
                     self.h5_file = h5py.File(os.path.join(disk_folder_address, self.filename), 'w')
                     self.datasets = {}
                     for name in self.record_list:
