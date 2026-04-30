@@ -32,8 +32,8 @@ The latest version of **MaxwellLink** (v0.3) ships with [**AI Agent Skills**](ht
   - [QuTiP](https://qutip.org/) model Hamiltonians, 
   - in-house RT-TDDFT/Ehrenfest dynamics using [Psi4](https://psicode.org/) integrals, 
   - [ASE](https://wiki.fysik.dtu.dk/ase/) classical dynamics, 
-  - direction socket connection to modified [LAMMPS](https://www.lammps.org/) for classical MD via `fix mxl`, 
-  - direction socket connection to modified [DFTB+](https://github.com/TEL-Research/dftbplus) for tight-binding BOMD/real-time Ehrenfest dynamics.
+  - direct socket connection to modified [LAMMPS](https://www.lammps.org/) for classical MD via `fix mxl`, 
+  - direct socket connection to modified [DFTB+](https://github.com/TEL-Research/dftbplus) for tight-binding BOMD/real-time Ehrenfest dynamics.
 - **Extensible code structure** to add custom EM solvers or molecular drivers with minimal effort.
 - **Embedded AI Agent Skills** to allow users to chat within, e.g., [Visual Code IDE + Codex](https://taoeli.github.io/MaxwellLink/agent_skills.html), to directly generate desired input files and even run jobs on both local machines and HPC systems.
 

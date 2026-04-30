@@ -59,11 +59,13 @@ molecular parameters and dynamics are handled by each driver implementation.
 EM solvers
 ---------------------
 
-Currently, three EM solvers are available in **MaxwellLink**: 
+The following EM solvers are available in **MaxwellLink**: 
 
 - The **Meep FDTD** engine: ``MeepSimulation`` (:mod:`maxwelllink.em_solvers.meep`)
 
 - The **single-mode cavity** solver:  ``SingleModeSimulation`` (:mod:`maxwelllink.em_solvers.single_mode_cavity`).
+
+- The **multimode cavity** solver:  ``MultiModeSimulation`` (:mod:`maxwelllink.em_solvers.multimode_cavity`).
 
 - The **laser-driven dynamics** solver:  ``LaserDrivenSimulation`` (:mod:`maxwelllink.em_solvers.laser_driven`).
 
@@ -102,6 +104,7 @@ and use the unified API when communicating with the hub. The following Python dr
 
 - **Two-level system (tls)**: a lightweight quantum model that propagates
   the von Neumann equation for a TLS.
+- **Simple harmonic oscillator (sho)**: a simple harmonic oscillator model for testing purposes.
 - **QuTiP model Hamiltonians (qutip)**: an interface to user-defined Hamiltonians
   using the `QuTiP <https://qutip.org/>`_ package.
 - **Psi4 RT-TDDFT (rttddft)**: real-time time-dependent density functional theory
@@ -111,9 +114,10 @@ and use the unified API when communicating with the hub. The following Python dr
 - **ASE molecular mechanics (ase)**: first-principles Born-Oppenheimer molecular dynamics using
   the `Atomic Simulation Environment (ASE) <https://wiki.fysik.dtu.dk/ase/>`_.
 
-An additional C++ `LAMMPS <https://www.lammps.org/>`_ driver implements ``fix mxl``, which communicates with the hub
-using the same socket protocol. See :doc:`installation` for instructions on building
-the LAMMPS binary with **MaxwellLink** support.
+Under socket mode connection, the following external drivers are available:
+
+- `LAMMPS <https://www.lammps.org/>`_ driver implements ``fix mxl``, which communicates with the hub using the same socket protocol. See :doc:`installation` for instructions on building the LAMMPS binary with **MaxwellLink** support.
+- `DFTB+ <https://dftbplus.org/>`_ driver implements the MaxwellLink interface for ground- and excited-statemolecular dynamics simulations.
 
 Please read :doc:`drivers/index` section for detailed definitions of different molecular drivers.
 
