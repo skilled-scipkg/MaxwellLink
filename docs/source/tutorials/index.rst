@@ -2,11 +2,18 @@ Tutorials
 =========
 
 **MaxwellLink**'s official tutorials involves the use of different
-EM solvers and molecular drivers. The sections below group tutorials by the
-employed electromagnetic solver. 
+EM solvers and molecular drivers. 
 
-Advanced features in **MaxwellLink** which differ from other light-matter simulators are also highlighted
-in a separate section.
+Fundamental Concepts
+~~~~~~~~~~~~~~~~~~~~
+
+.. toctree::
+   :maxdepth: 1
+
+   notebook/00_intro_rt_tdhf.ipynb
+
+The sections below group tutorials by the
+employed electromagnetic solver. 
 
 Laser-Driven Dynamics
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -41,6 +48,8 @@ MEEP FDTD
 
 Advanced Features
 ~~~~~~~~~~~~~~~~~~~~~~~~
+
+Advanced features in **MaxwellLink** which differ from other light-matter simulators are also highlighted.
 
 .. toctree::
    :maxdepth: 1

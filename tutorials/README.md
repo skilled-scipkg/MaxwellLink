@@ -1,9 +1,12 @@
 Tutorials
 =========
 
-**MaxwellLink**'s official tutorials involves the use of different EM solvers and molecular drivers. The sections below group tutorials by the employed electromagnetic solver. 
+**MaxwellLink**'s official tutorials involves the use of different EM solvers and molecular drivers. 
 
-Advanced features in **MaxwellLink** which  differ from other light-matter simulators are also highlighted in the **Advanced Features** section.
+## Fundamental theory
+- [Introduction to real-time time-dependent Hartree-Fock theory](./00_intro_rt_tdhf.ipynb)
+
+The sections below group tutorials by the employed electromagnetic solver. 
 
 ## Laser driven dynamics
 - [Cosine driving of TLS](./01_driven_tls.ipynb)
@@ -22,6 +25,8 @@ Advanced features in **MaxwellLink** which  differ from other light-matter simul
 - [Vibrational strong coupling of liquid water in a Bragg resonator: Unix socket](./08_meep_vsc.ipynb)
 
 ## Advanced Features
+
+Advanced features in **MaxwellLink** which  differ from other light-matter simulators are also highlighted.
 
 - [Comparison between different kernel functions in polarization densities](./09_advanced_features_polarization_type.ipynb)
 
